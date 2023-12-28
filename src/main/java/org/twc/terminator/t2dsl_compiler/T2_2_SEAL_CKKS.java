@@ -9,18 +9,18 @@ import java.util.List;
 
 public class T2_2_SEAL_CKKS extends T2_2_SEAL {
 
-  public T2_2_SEAL_CKKS(SymbolTable st, String config_file_path) {
-    super(st, config_file_path, 0);
+  public T2_2_SEAL_CKKS(SymbolTable st, String config_file_path, int ring_dim) {
+    super(st, config_file_path, 0, ring_dim);
     this.st_.backend_types.put("EncDouble", "Ciphertext");
     this.st_.backend_types.put("EncDouble[]", "vector<Ciphertext>");
   }
 
   protected void append_keygen() {
     append_idx("EncryptionParameters parms(scheme_type::ckks);\n");
-    append_idx("size_t poly_modulus_degree = 16384;\n");
+    append_idx("size_t poly_modulus_degree = " + this.ring_dim_ + ";\n");
     append_idx("parms.set_poly_modulus_degree(poly_modulus_degree);\n");
     append_idx("parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree,"
-               + " { 60, 40, 40, 40, 40, 40, 60 }));\n");
+        + " { 60, 40, 40, 40, 40, 40, 60 }));\n");
     append_idx("double scale = pow(2.0, 40);\n");
     append_idx("SEALContext context(parms);\n");
     append_idx("KeyGenerator keygen(context);\n");
@@ -52,7 +52,7 @@ public class T2_2_SEAL_CKKS extends T2_2_SEAL {
     String rhs_type = st_.findType(rhs);
     String rhs_name = rhs.getName();
     if (lhs_type.equals("EncDouble") &&
-          (rhs_type.equals("double") || rhs_type.equals("int"))) {
+        (rhs_type.equals("double") || rhs_type.equals("int"))) {
       // if EncDouble <- int | double
       append_idx("encoder.encode(");
       this.asm_.append(rhs_name);
@@ -61,7 +61,7 @@ public class T2_2_SEAL_CKKS extends T2_2_SEAL {
       this.asm_.append(lhs.getName()).append(")");
       this.semicolon_ = true;
     } else if (lhs_type.equals("EncDouble[]") &&
-                (rhs_type.equals("double[]") || rhs_type.equals("int[]"))) {
+        (rhs_type.equals("double[]") || rhs_type.equals("int[]"))) {
       // if EncDouble[] <- int[] | double[]
       append_idx(lhs.getName());
       this.asm_.append(".resize(").append(rhs_name).append(".size());\n");
@@ -88,7 +88,7 @@ public class T2_2_SEAL_CKKS extends T2_2_SEAL {
       this.semicolon_ = true;
     } else {
       throw new Exception("Error assignment statement between different " +
-                          "types: " + lhs_type + ", " + rhs_type);
+          "types: " + lhs_type + ", " + rhs_type);
     }
     return null;
   }
@@ -145,16 +145,22 @@ public class T2_2_SEAL_CKKS extends T2_2_SEAL {
     String lhs_type = st_.findType(lhs);
     String rhs_type = st_.findType(rhs);
     if ((lhs_type.equals("int") || lhs_type.equals("double")) &&
-          (rhs_type.equals("int") || rhs_type.equals("double"))) {
+        (rhs_type.equals("int") || rhs_type.equals("double"))) {
       append_idx(lhs.getName());
       this.asm_.append(" ").append(op).append(" ");
       this.asm_.append(rhs.getName());
     } else if (lhs_type.equals("EncDouble") && rhs_type.equals("EncDouble")) {
       append_idx("evaluator.");
       switch (op) {
-        case "+=": this.asm_.append("add("); break;
-        case "*=": this.asm_.append("multiply("); break;
-        case "-=": this.asm_.append("sub("); break;
+        case "+=":
+          this.asm_.append("add(");
+          break;
+        case "*=":
+          this.asm_.append("multiply(");
+          break;
+        case "-=":
+          this.asm_.append("sub(");
+          break;
         default:
           throw new Exception("Bad operand types: " + lhs_type + " " + op + " " + rhs_type);
       }
@@ -166,15 +172,21 @@ public class T2_2_SEAL_CKKS extends T2_2_SEAL {
         this.asm_.append(lhs.getName()).append(", relin_keys)");
       }
     } else if (lhs_type.equals("EncDouble") &&
-                (rhs_type.equals("int") || rhs_type.equals("double"))) {
+        (rhs_type.equals("int") || rhs_type.equals("double"))) {
       append_idx("encoder.encode(");
       this.asm_.append(rhs.getName()).append(", scale, tmp);\n");
       append_idx("evaluator.mod_switch_to_inplace(tmp, " + lhs.getName() + ".parms_id());\n");
       append_idx("evaluator.");
       switch (op) {
-        case "+=": this.asm_.append("add_plain("); break;
-        case "*=": this.asm_.append("multiply_plain("); break;
-        case "-=": this.asm_.append("sub_plain("); break;
+        case "+=":
+          this.asm_.append("add_plain(");
+          break;
+        case "*=":
+          this.asm_.append("multiply_plain(");
+          break;
+        case "-=":
+          this.asm_.append("sub_plain(");
+          break;
         default:
           throw new Exception("Bad operand types: " + lhs_type + " " + op + " " + rhs_type);
       }
@@ -237,9 +249,15 @@ public class T2_2_SEAL_CKKS extends T2_2_SEAL {
           this.asm_.append("[").append(idx.getName()).append("].parms_id());\n");
           append_idx("evaluator.");
           switch (op) {
-            case "+=": this.asm_.append("add_plain("); break;
-            case "*=": this.asm_.append("multiply_plain("); break;
-            case "-=": this.asm_.append("sub_plain("); break;
+            case "+=":
+              this.asm_.append("add_plain(");
+              break;
+            case "*=":
+              this.asm_.append("multiply_plain(");
+              break;
+            case "-=":
+              this.asm_.append("sub_plain(");
+              break;
             default:
               throw new Exception("Compound array: " + op + " " + rhs_type);
           }
@@ -455,7 +473,8 @@ public class T2_2_SEAL_CKKS extends T2_2_SEAL {
       throw new RuntimeException("PrintBatchedStatement: expression type");
     Var_t size = n.f4.accept(this);
     String size_type = size.getType();
-    if (size_type == null) size_type = st_.findType(size);
+    if (size_type == null)
+      size_type = st_.findType(size);
     if (!size_type.equals("int"))
       throw new RuntimeException("PrintBatchedStatement: size type");
     String tmp_vec = "tmp_vec_" + (++tmp_cnt_);
@@ -497,7 +516,7 @@ public class T2_2_SEAL_CKKS extends T2_2_SEAL {
    * f4 -> Expression()
    * f5 -> ")"
    */
-  public Var_t visit(MatchParamsStatement n) throws Exception { //is int
+  public Var_t visit(MatchParamsStatement n) throws Exception { // is int
     n.f0.accept(this);
     n.f1.accept(this);
     Var_t dst = n.f2.accept(this);
@@ -510,7 +529,7 @@ public class T2_2_SEAL_CKKS extends T2_2_SEAL {
     return null;
   }
 
-    /**
+  /**
    * f0 -> <ROTATE_LEFT>
    * f1 -> "("
    * f2 -> Expression()
@@ -555,29 +574,27 @@ public class T2_2_SEAL_CKKS extends T2_2_SEAL {
     String rhs_type = st_.findType(rhs);
     if (lhs_type.equals("int") && rhs_type.equals("int")) {
       if ("&".equals(op) || "|".equals(op) || "^".equals(op) || "<<".equals(op) ||
-              ">>".equals(op) || "+".equals(op) || "-".equals(op) || "*".equals(op) ||
-              "/".equals(op) || "%".equals(op)
-      ) {
+          ">>".equals(op) || "+".equals(op) || "-".equals(op) || "*".equals(op) ||
+          "/".equals(op) || "%".equals(op)) {
         return new Var_t("int", lhs.getName() + op + rhs.getName());
       } else if ("==".equals(op) || "!=".equals(op) || "<".equals(op) ||
-              "<=".equals(op) || ">".equals(op) || ">=".equals(op) ||
-              "&&".equals(op) || "||".equals(op)) {
+          "<=".equals(op) || ">".equals(op) || ">=".equals(op) ||
+          "&&".equals(op) || "||".equals(op)) {
         return new Var_t("bool", lhs.getName() + op + rhs.getName());
       }
     } else if ((lhs_type.equals("int") || lhs_type.equals("double")) &&
-                (rhs_type.equals("int") || rhs_type.equals("double"))) {
+        (rhs_type.equals("int") || rhs_type.equals("double"))) {
       if ("&".equals(op) || "|".equals(op) || "^".equals(op) || "<<".equals(op) ||
           ">>".equals(op) || "+".equals(op) || "-".equals(op) || "*".equals(op) ||
-          "/".equals(op) || "%".equals(op)
-      ) {
+          "/".equals(op) || "%".equals(op)) {
         return new Var_t("double", lhs.getName() + op + rhs.getName());
       } else if ("==".equals(op) || "!=".equals(op) || "<".equals(op) ||
-                 "<=".equals(op) || ">".equals(op) || ">=".equals(op) ||
-                 "&&".equals(op) || "||".equals(op)) {
+          "<=".equals(op) || ">".equals(op) || ">=".equals(op) ||
+          "&&".equals(op) || "||".equals(op)) {
         return new Var_t("bool", lhs.getName() + op + rhs.getName());
       }
     } else if ((lhs_type.equals("int") || lhs_type.equals("double")) &&
-                  rhs_type.equals("EncDouble")) {
+        rhs_type.equals("EncDouble")) {
       String res_ = new_ctxt_tmp();
       append_idx("encoder.encode(" + lhs.getName() + ", scale, tmp);\n");
       append_idx("evaluator.mod_switch_to_inplace(tmp, " + rhs.getName() + ".parms_id());\n");
@@ -603,7 +620,7 @@ public class T2_2_SEAL_CKKS extends T2_2_SEAL {
       }
       return new Var_t("EncDouble", res_);
     } else if (lhs_type.equals("EncDouble") &&
-                (rhs_type.equals("int") || rhs_type.equals("double"))) {
+        (rhs_type.equals("int") || rhs_type.equals("double"))) {
       String res_ = new_ctxt_tmp();
       append_idx("encoder.encode(" + rhs.getName() + ", scale, tmp);\n");
       append_idx("evaluator.mod_switch_to_inplace(tmp, " + lhs.getName() + ".parms_id());\n");

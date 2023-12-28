@@ -10,7 +10,7 @@ import java.io.*;
 public class Main {
 
   enum HE_BACKEND {
-    NONE, SEAL, TFHE, PALISADE, HELIB, LATTIGO
+    NONE, SEAL, TFHE, PALISADE, HELIB, LATTIGO, CLEAR
   }
 
   public enum ENC_TYPE {
@@ -26,55 +26,68 @@ public class Main {
     HE_BACKEND backend_ = HE_BACKEND.NONE;
     boolean debug_ = false, print_bin_ = false, bootstrapping_ = false;
     int word_sz_ = 0;
+    int ring_dim_ = 4096;
     String config = "path to config";
     for (int i = 0; i < args.length; i++) {
       String arg = args[i];
       if (arg.equalsIgnoreCase("-DEBUG") ||
           arg.equalsIgnoreCase("--DEBUG")) {
         debug_ = true;
+      } else if (arg.equalsIgnoreCase("-CLEAR") ||
+          arg.equalsIgnoreCase("--CLEAR")) {
+        backend_ = HE_BACKEND.CLEAR;
       } else if (arg.equalsIgnoreCase("-SEAL") ||
-                 arg.equalsIgnoreCase("--SEAL")) {
+          arg.equalsIgnoreCase("--SEAL")) {
         backend_ = HE_BACKEND.SEAL;
       } else if (arg.equalsIgnoreCase("-TFHE") ||
-                 arg.equalsIgnoreCase("--TFHE")) {
+          arg.equalsIgnoreCase("--TFHE")) {
         backend_ = HE_BACKEND.TFHE;
-        if (word_sz_ == 0) word_sz_ = 8;
+        if (word_sz_ == 0)
+          word_sz_ = 8;
       } else if (arg.equalsIgnoreCase("-PALISADE") ||
-                 arg.equalsIgnoreCase("--PALISADE")) {
+          arg.equalsIgnoreCase("--PALISADE")) {
         backend_ = HE_BACKEND.PALISADE;
       } else if (arg.equalsIgnoreCase("-HELIB") ||
-                 arg.equalsIgnoreCase("--HELIB")) {
+          arg.equalsIgnoreCase("--HELIB")) {
         backend_ = HE_BACKEND.HELIB;
       } else if (arg.equalsIgnoreCase("-LATTIGO") ||
-                 arg.equalsIgnoreCase("--LATTIGO")) {
+          arg.equalsIgnoreCase("--LATTIGO")) {
         backend_ = HE_BACKEND.LATTIGO;
       } else if (arg.equalsIgnoreCase("-PRINTBIN") ||
-              arg.equalsIgnoreCase("--PRINTBIN")) {
+          arg.equalsIgnoreCase("--PRINTBIN")) {
         print_bin_ = true;
       } else if (arg.equalsIgnoreCase("-BOOTSTRAP") ||
-              arg.equalsIgnoreCase("--BOOTSTRAP")) {
+          arg.equalsIgnoreCase("--BOOTSTRAP")) {
         bootstrapping_ = true;
       } else if (arg.equalsIgnoreCase("-CONFIG") ||
-                 arg.equalsIgnoreCase("--CONFIG")) {
+          arg.equalsIgnoreCase("--CONFIG")) {
         if (++i >= args.length) {
           System.out.println("[ \033[0;31m X \033[0m ] Configuration file " +
-                             "must be passed after the -config parameter.");
+              "must be passed after the -config parameter.");
           System.exit(-1);
         }
         config = args[i];
       } else if (arg.equalsIgnoreCase("-W") ||
-                 arg.equalsIgnoreCase("--W")) {
+          arg.equalsIgnoreCase("--W")) {
         if (++i >= args.length) {
           System.out.println("[ \033[0;31m X \033[0m ] Word size " +
-                             "must be passed after the -w parameter.");
+              "must be passed after the -w parameter.");
           System.exit(-1);
         }
         word_sz_ = Integer.parseInt(args[i]);
+      } else if (arg.equalsIgnoreCase("-N") ||
+          arg.equalsIgnoreCase("--N")) {
+        if (++i >= args.length) {
+          System.out.println("[ \033[0;31m X \033[0m ] Ring Dim " +
+              "must be passed after the -n parameter.");
+          System.exit(-1);
+        }
+        ring_dim_ = Integer.parseInt(args[i]);
       } else {
         input_file = arg;
       }
     }
-    assert(input_file != null);
+    assert (input_file != null);
     InputStream input_stream = null;
     PrintWriter writer = null;
     File fp = new File(input_file);
@@ -95,21 +108,21 @@ public class Main {
       if (bootstrapping_) {
         if (!(backend_.equals(HE_BACKEND.HELIB) || backend_.equals(HE_BACKEND.TFHE))) {
           throw new RuntimeException("Bootstrapping option is only valid for " +
-                                     "HElib and TFHE.");
+              "HElib and TFHE.");
         }
         if (word_sz_ <= 0) {
           throw new RuntimeException("Bootstrapping option is only valid for " +
-                  "HElib and TFHE in the binary domain.");
+              "HElib and TFHE in the binary domain.");
         }
       }
       System.out.println("[ 1/2 ] Class members and methods info collection" +
-                          " phase completed");
+          " phase completed");
       TypeCheckVisitor type_checker = new TypeCheckVisitor(symbol_table);
       t2dsl_goal.accept(type_checker);
       ENC_TYPE scheme_ = type_checker.getScheme();
       if (scheme_ == ENC_TYPE.ENC_DOUBLE && word_sz_ > 0) {
         throw new RuntimeException("Cannot use binary with encrypted " +
-                                    "double type.");
+            "double type.");
       } else if (scheme_ == ENC_TYPE.NONE) {
         scheme_ = ENC_TYPE.ENC_INT;
       }
@@ -136,45 +149,49 @@ public class Main {
       switch (backend_) {
         case NONE:
           throw new RuntimeException("Provide a backend (i.e., -SEAL, " +
-                                     "-TFHE, -PALISADE, -HELIB, -LATTIGO)");
+              "-TFHE, -PALISADE, -HELIB, -LATTIGO)");
+        case CLEAR:
+          dsl_compiler = new T2_2_CLEAR(symbol_table, config, word_sz_, ring_dim_);
+          break;
         case SEAL:
           if (scheme_ == ENC_TYPE.ENC_INT) {
-            dsl_compiler = new T2_2_SEAL(symbol_table, config, word_sz_);
+            dsl_compiler = new T2_2_SEAL(symbol_table, config, word_sz_, ring_dim_);
           } else if (scheme_ == ENC_TYPE.ENC_DOUBLE) {
-            dsl_compiler = new T2_2_SEAL_CKKS(symbol_table, config);
+            dsl_compiler = new T2_2_SEAL_CKKS(symbol_table, config, ring_dim_);
           }
           break;
         case TFHE:
-          dsl_compiler = new T2_2_TFHE(symbol_table, config, word_sz_, print_bin_);
+          // dsl_compiler = new T2_2_TFHE(symbol_table, config, word_sz_, print_bin_);
           break;
         case PALISADE:
           if (scheme_ == ENC_TYPE.ENC_INT) {
-            dsl_compiler = new T2_2_PALISADE(symbol_table, config, word_sz_);
+            dsl_compiler = new T2_2_PALISADE(symbol_table, config, word_sz_, ring_dim_);
           } else if (scheme_ == ENC_TYPE.ENC_DOUBLE) {
-            dsl_compiler = new T2_2_PALISADE_CKKS(symbol_table, config);
+            dsl_compiler = new T2_2_PALISADE_CKKS(symbol_table, config, ring_dim_);
           }
           break;
         case HELIB:
-          if (scheme_ == ENC_TYPE.ENC_INT) {
-            dsl_compiler = new T2_2_HElib(symbol_table, config, word_sz_, bootstrapping_);
-          } else if (scheme_ == ENC_TYPE.ENC_DOUBLE) {
-            dsl_compiler = new T2_2_HElib_CKKS(symbol_table, config);
-          }
+          // if (scheme_ == ENC_TYPE.ENC_INT) {
+          // dsl_compiler = new T2_2_HElib(symbol_table, config, word_sz_,
+          // bootstrapping_);
+          // } else if (scheme_ == ENC_TYPE.ENC_DOUBLE) {
+          // dsl_compiler = new T2_2_HElib_CKKS(symbol_table, config);
+          // }
           break;
         case LATTIGO:
-          suffix = ".go";
-          if (scheme_ == ENC_TYPE.ENC_INT) {
-            dsl_compiler = new T2_2_Lattigo(symbol_table, config, word_sz_);
-          } else if (scheme_ == ENC_TYPE.ENC_DOUBLE) {
-            dsl_compiler = new T2_2_Lattigo_CKKS(symbol_table, config);
-          }
+          // suffix = ".go";
+          // if (scheme_ == ENC_TYPE.ENC_INT) {
+          // dsl_compiler = new T2_2_Lattigo(symbol_table, config, word_sz_);
+          // } else if (scheme_ == ENC_TYPE.ENC_DOUBLE) {
+          // dsl_compiler = new T2_2_Lattigo_CKKS(symbol_table, config);
+          // }
           break;
         default:
           throw new RuntimeException("Backend is not supported yet");
       }
       if (dsl_compiler == null) {
         throw new RuntimeException("Combination of backend and scheme is " +
-                                   "not supported.");
+            "not supported.");
       }
       t2dsl_goal.accept(dsl_compiler);
       String code = dsl_compiler.get_asm();
@@ -182,9 +199,10 @@ public class Main {
       writer = new PrintWriter(output_path);
       writer.print(code);
       writer.close();
-      if (debug_) System.out.println(code);
+      if (debug_)
+        System.out.println(code);
       System.out.println("[ \033[0;32m \u2713 \033[0m ] " + backend_.name() +
-                         " code generated to \"" + output_path + "\"");
+          " code generated to \"" + output_path + "\"");
       input_stream = new FileInputStream(output_path);
     } catch (ParseException | FileNotFoundException ex) {
       ex.printStackTrace();
@@ -193,8 +211,10 @@ public class Main {
       System.exit(-1);
     } finally {
       try {
-        if (input_stream != null) input_stream.close();
-        if (writer != null) writer.close();
+        if (input_stream != null)
+          input_stream.close();
+        if (writer != null)
+          writer.close();
       } catch (IOException ex) {
         ex.printStackTrace();
         System.exit(-1);

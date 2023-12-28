@@ -19,13 +19,14 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
 
   protected StringBuilder asm_;
   protected int indent_, tmp_cnt_, word_sz_;
+  protected int ring_dim_;
   protected boolean semicolon_;
   protected String config_file_path_;
   protected String tmp_i;
   protected boolean is_binary_, timer_used_;
   protected String tstart_, tstop_, tdur_;
 
-  public T2_Compiler(SymbolTable st, String config_file_path, int word_sz) {
+  public T2_Compiler(SymbolTable st, String config_file_path, int word_sz, int ring_dim) {
     this.indent_ = 0;
     this.tmp_cnt_ = 0;
     this.st_ = st;
@@ -43,6 +44,7 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
     this.tstop_ = "stop_timer";
     this.tdur_ = "duration";
     this.timer_used_ = false;
+    this.ring_dim_ = ring_dim;
   }
 
   public Main.ENC_TYPE getScheme() {
@@ -81,15 +83,18 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
   }
 
   public static boolean isNumeric(String str) {
-    if (str == null || str.equals("")) return false;
+    if (str == null || str.equals(""))
+      return false;
     try {
       Long.parseLong(str);
       return true;
-    } catch (NumberFormatException ignored) {}
+    } catch (NumberFormatException ignored) {
+    }
     try {
       Float.parseFloat(str);
       return true;
-    } catch (NumberFormatException ignored) {}
+    } catch (NumberFormatException ignored) {
+    }
     return false;
   }
 
@@ -101,7 +106,7 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
         throw new IOException();
       Path filePath = Paths.get(config_file_path_);
       Stream<String> lines = Files.lines(filePath);
-      lines.forEach((line)->{
+      lines.forEach((line) -> {
         this.asm_.append("  ").append(line).append("\n");
       });
       this.asm_.append("\n");
@@ -109,7 +114,7 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
       return true;
     } catch (InvalidPathException | IOException e) {
       System.out.println("[ \033[1;33m ! \033[0m ] Configuration file not " +
-                         "found, using default config.");
+          "found, using default config.");
       return false;
     }
   }
@@ -231,7 +236,6 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
     return new Var_t("EncDouble[]", null);
   }
 
-
   /**
    * f0 -> "boolean"
    */
@@ -269,22 +273,22 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
 
   /**
    * f0 -> Block()
-   *       | ArrayAssignmentStatement() ";"
-   *       | BatchAssignmentStatement() ";"
-   *       | BatchArrayAssignmentStatement() ";"
-   *       | AssignmentStatement() ";"
-   *       | IncrementAssignmentStatement()
-   *       | DecrementAssignmentStatement()
-   *       | CompoundAssignmentStatement()
-   *       | CompoundArrayAssignmentStatement()
-   *       | IfStatement()
-   *       | WhileStatement()
-   *       | ForStatement()
-   *       | PrintStatement() ";"
-   *       | PrintBatchedStatement() ";"
-   *       | ReduceNoiseStatement() ";"
-   *       | StartTimerStatement() ";"
-   *       | StopTimerStatement() ";"
+   * | ArrayAssignmentStatement() ";"
+   * | BatchAssignmentStatement() ";"
+   * | BatchArrayAssignmentStatement() ";"
+   * | AssignmentStatement() ";"
+   * | IncrementAssignmentStatement()
+   * | DecrementAssignmentStatement()
+   * | CompoundAssignmentStatement()
+   * | CompoundArrayAssignmentStatement()
+   * | IfStatement()
+   * | WhileStatement()
+   * | ForStatement()
+   * | PrintStatement() ";"
+   * | PrintBatchedStatement() ";"
+   * | ReduceNoiseStatement() ";"
+   * | StartTimerStatement() ";"
+   * | StopTimerStatement() ";"
    */
   public Var_t visit(Statement n) throws Exception {
     n.f0.accept(this);
@@ -347,18 +351,18 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
 
   /**
    * f0 -> "+="
-   * |   "-="
-   * |   "*="
-   * |   "/="
-   * |   "%="
-   * |   "<<="
-   * |   ">>="
-   * |   "&="
-   * |   "|="
-   * |   "^="
+   * | "-="
+   * | "*="
+   * | "/="
+   * | "%="
+   * | "<<="
+   * | ">>="
+   * | "&="
+   * | "|="
+   * | "^="
    */
   public Var_t visit(CompoundOperator n) throws Exception {
-    String[] _ret = {"+=", "-=", "*=", "/=", "%=", "<<=", ">>=", ">>>=", "&=", "|=", "^="};
+    String[] _ret = { "+=", "-=", "*=", "/=", "%=", "<<=", ">>=", ">>>=", "&=", "|=", "^=" };
     String op = _ret[n.f0.which];
     return new Var_t("int", op);
   }
@@ -468,7 +472,8 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
    * f3 -> ";"
    * f4 -> Expression()
    * f5 -> ";"
-   * f6 -> ( AssignmentStatement() | IncrementAssignmentStatement() | DecrementAssignmentStatement() | CompoundAssignmentStatement() )
+   * f6 -> ( AssignmentStatement() | IncrementAssignmentStatement() |
+   * DecrementAssignmentStatement() | CompoundAssignmentStatement() )
    * f7 -> ")"
    * f8 -> Statement()
    */
@@ -543,8 +548,10 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
    * f2 -> ")"
    */
   public Var_t visit(StartTimerStatement n) throws Exception {
-    if (!this.timer_used_) append_idx("auto " + this.tstart_);
-    else append_idx(this.tstart_);
+    if (!this.timer_used_)
+      append_idx("auto " + this.tstart_);
+    else
+      append_idx(this.tstart_);
     this.asm_.append(" = chrono::high_resolution_clock::now();\n");
     return null;
   }
@@ -555,11 +562,15 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
    * f2 -> ")"
    */
   public Var_t visit(StopTimerStatement n) throws Exception {
-    if (!this.timer_used_) append_idx("auto " + this.tstop_);
-    else append_idx(this.tstop_);
+    if (!this.timer_used_)
+      append_idx("auto " + this.tstop_);
+    else
+      append_idx(this.tstop_);
     this.asm_.append(" = chrono::high_resolution_clock::now();\n");
-    if (!this.timer_used_) append_idx("auto " + this.tdur_);
-    else append_idx(this.tdur_);
+    if (!this.timer_used_)
+      append_idx("auto " + this.tdur_);
+    else
+      append_idx(this.tdur_);
     this.asm_.append(" = chrono::duration_cast<chrono::milliseconds>(");
     this.asm_.append(this.tstop_).append("-").append(this.tstart_).append(");\n");
     append_idx("cout << \"Time: \" << " + this.tdur_);
@@ -615,26 +626,26 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
 
   /**
    * f0 -> "&"
-   * |  "|"
-   * |  "^"
-   * |  "<<"
-   * |  ">>"
-   * |  ">>>"
-   * |  "+"
-   * |  "-"
-   * |  "*"
-   * |  "/"
-   * |  "%"
-   * |  "=="
-   * |  "!="
-   * |  "<"
-   * |  "<="
-   * |  ">"
-   * |  ">="
+   * | "|"
+   * | "^"
+   * | "<<"
+   * | ">>"
+   * | ">>>"
+   * | "+"
+   * | "-"
+   * | "*"
+   * | "/"
+   * | "%"
+   * | "=="
+   * | "!="
+   * | "<"
+   * | "<="
+   * | ">"
+   * | ">="
    */
   public Var_t visit(BinOperator n) throws Exception {
-    String[] _ret = {"&", "|", "^", "<<", ">>", ">>>", "+", "-", "*", "/", "%",
-                     "==", "!=", "<", "<=", ">", ">="};
+    String[] _ret = { "&", "|", "^", "<<", ">>", ">>>", "+", "-", "*", "/", "%",
+        "==", "!=", "<", "<=", ">", ">=" };
     String op = _ret[n.f0.which];
     if ("&".equals(op) || "|".equals(op) || "^".equals(op) ||
         "<<".equals(op) || ">>".equals(op) || ">>>".equals(op) ||
@@ -643,7 +654,7 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
         "/".equals(op) || "%".equals(op)) {
       return new Var_t("int", op);
     } else if ("==".equals(op) || "!=".equals(op) || "<".equals(op) ||
-               "<=".equals(op) || ">".equals(op) || ">=".equals(op)) {
+        "<=".equals(op) || ">".equals(op) || ">=".equals(op)) {
       return new Var_t("boolean", op);
     } else {
       throw new IllegalStateException("BinOperator: Unexpected value: " + op);
@@ -718,13 +729,13 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
 
   /**
    * f0 -> IntegerLiteral()
-   *       | DoubleLiteral()
-   *       | TrueLiteral()
-   *       | FalseLiteral()
-   *       | Identifier()
-   *       | ArrayAllocationExpression()
-   *       | EncryptedArrayAllocationExpression()
-   *       | BracketExpression()
+   * | DoubleLiteral()
+   * | TrueLiteral()
+   * | FalseLiteral()
+   * | Identifier()
+   * | ArrayAllocationExpression()
+   * | EncryptedArrayAllocationExpression()
+   * | BracketExpression()
    */
   public Var_t visit(PrimaryExpression n) throws Exception {
     return n.f0.accept(this);
