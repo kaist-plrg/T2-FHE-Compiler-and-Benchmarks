@@ -387,10 +387,8 @@ public class T2_2_CLEAR extends T2_Compiler {
   public Var_t visit(ReduceNoiseStatement n) throws Exception {
     Var_t expr = n.f2.accept(this);
     String expr_type = st_.findType(expr);
-    if (!expr_type.equals("EncInt"))
+    if (!expr_type.startsWith("Enc"))
       throw new RuntimeException("ReduceNoiseStatement: expr type");
-    append_idx("evaluator.mod_switch_to_next_inplace(");
-    this.asm_.append(expr.getName()).append(");\n");
     return null;
   }
 
