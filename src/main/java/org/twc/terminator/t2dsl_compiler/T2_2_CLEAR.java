@@ -248,7 +248,7 @@ public class T2_2_CLEAR extends T2_Compiler {
     String id_type = st_.findType(id);
     String lhs_name = id.getName() + "[" + idx.getName() + "]";
     String rhs_type = st_.findType(rhs);
-    if (id_type.equals("EncInt[]") || id_type.equals("EncDouble[]")) {
+    if (id_type.startsWith("Enc") && id_type.endsWith("[]")) {
       if (id_type.startsWith(rhs_type)) {
         append_idx(lhs_name);
         this.asm_.append(" = ").append(rhs.getName());
@@ -278,7 +278,7 @@ public class T2_2_CLEAR extends T2_Compiler {
     String id_type = st_.findType(id);
     append_idx(id.getName());
     this.asm_.append(" = { ");
-    if (id_type.equals("EncInt[]") || id_type.equals("EncDouble[]")) {
+    if (id_type.startsWith("Enc") && id_type.endsWith("[]")) {
       this.asm_.append("{ ").append(exp.getName()).append(" }");
       if (n.f4.present()) {
         for (int i = 0; i < n.f4.size(); i++) {
@@ -430,7 +430,6 @@ public class T2_2_CLEAR extends T2_Compiler {
    * f2 -> PrimaryExpression()
    */
   public Var_t visit(BinaryExpression n) throws Exception {
-    // TODO: Refactor this function
     Var_t lhs = n.f0.accept(this);
     String op = n.f1.accept(this).getName();
     Var_t rhs = n.f2.accept(this);
@@ -457,151 +456,6 @@ public class T2_2_CLEAR extends T2_Compiler {
     throw new Exception("Bad operand types: " + lhs_type + " " + op + " " +
         rhs_type);
   }
-
-  // if (!lhs_type.startsWith("Enc") && !rhs_type.startsWith("Enc")) {
-  // if ("&".equals(op) || "|".equals(op) || "^".equals(op) || "<<".equals(op) ||
-  // ">>".equals(op) || "+".equals(op) || "-".equals(op) || "*".equals(op) ||
-  // "/".equals(op) || "%".equals(op)) {
-  // return new Var_t(ret_type, lhs.getName() + op + rhs.getName());
-  // } else if ("==".equals(op) || "!=".equals(op) || "<".equals(op) ||
-  // "<=".equals(op) || ">".equals(op) || ">=".equals(op) ||
-  // "&&".equals(op) || "||".equals(op)) {
-  // return new Var_t("bool", lhs.getName() + op + rhs.getName());
-  // }
-  // } else if (!lhs_type.startsWith("Enc") && rhs_type.startsWith("Enc")) {
-  // String res_ = new_ctxt_tmp(ret_type);
-  // String tmp_vec = "tmp_vec_" + (++tmp_cnt_);
-  // append_idx(this.st_.backend_types.get(ret_type) + tmp_vec + "(" +
-  // this.ring_dim_ + ", "
-  // + lhs.getName() + ");\n");
-  // switch (op) {
-  // case "+":
-  // case "*":
-  // case "-":
-  // append_idx("for ( int i = 0; i < " + this.ring_dim_ + "; ++i) {\n");
-  // this.indent_ += 2;
-  // append_idx(res_ + "[i]" + "=" + tmp_vec + "[i]" + op + rhs.getName() +
-  // "[i];\n");
-  // this.indent_ -= 2;
-  // append_idx("}\n");
-  // break;
-  // case "^":
-  // throw new Exception("XOR over encrypted integers is not possible");
-  // case "&":
-  // throw new Exception("Bitwise AND over encrypted integers is not possible");
-  // case "|":
-  // throw new Exception("Bitwise OR over encrypted integers is not possible");
-  // case "==":
-  // append_idx("tmp_ = cc->Encrypt(keyPair.publicKey, tmp);\n");
-  // append_idx(res_);
-  // this.asm_.append(" = eq(cc, tmp_, ").append(rhs.getName());
-  // this.asm_.append(", plaintext_modulus);\n");
-  // break;
-  // case "!=":
-  // append_idx("tmp_ = cc->Encrypt(keyPair.publicKey, tmp);\n");
-  // append_idx(res_);
-  // this.asm_.append(" = neq(cc, tmp_, ").append(rhs.getName());
-  // this.asm_.append(", plaintext_modulus);\n");
-  // break;
-  // case "<":
-  // append_idx("tmp_ = cc->Encrypt(keyPair.publicKey, tmp);\n");
-  // append_idx(res_);
-  // this.asm_.append(" = lt(cc, tmp_, ").append(rhs.getName());
-  // this.asm_.append(", keyPair.publicKey, plaintext_modulus);\n");
-  // break;
-  // case "<=":
-  // append_idx("tmp_ = cc->Encrypt(keyPair.publicKey, tmp);\n");
-  // append_idx(res_);
-  // this.asm_.append(" = leq(cc, tmp_, ").append(rhs.getName());
-  // this.asm_.append(", keyPair.publicKey, plaintext_modulus);\n");
-  // break;
-  // case "<<":
-  // case ">>":
-  // case ">>>":
-  // throw new Exception("Shift over encrypted integers is not possible");
-  // default:
-  // throw new Exception("Bad operand types: " + lhs_type + " " + op + " " +
-  // rhs_type);
-  // }
-  // return new Var_t(ret_type, res_);
-  // } else if (lhs_type.startsWith("Enc") && !rhs_type.startsWith("Enc")) {
-  // String res_ = new_ctxt_tmp(ret_type);
-  // String tmp_vec = "tmp_vec_" + (++tmp_cnt_);
-  // append_idx(this.st_.backend_types.get(ret_type) + tmp_vec + "(" +
-  // this.ring_dim_ + ", "
-  // + rhs.getName() + ");\n");
-  // switch (op) {
-  // case "+":
-  // case "*":
-  // case "-":
-  // append_idx("for ( int i = 0; i < " + this.ring_dim_ + "; ++i) {\n");
-  // this.indent_ += 2;
-  // append_idx(res_ + "[i]" + "=" + lhs.getName() + "[i]" + op + tmp_vec +
-  // "[i];\n");
-  // this.indent_ -= 2;
-  // append_idx("}\n");
-  // break;
-  // case "^":
-  // throw new Exception("XOR over encrypted integers is not possible");
-  // case "&":
-  // throw new Exception("Bitwise AND over encrypted integers is not possible");
-  // case "|":
-  // throw new Exception("Bitwise OR over encrypted integers is not possible");
-  // case "==":
-  // append_idx("tmp_ = cc->Encrypt(keyPair.publicKey, tmp);\n");
-  // append_idx(res_);
-  // this.asm_.append(" = eq(cc, ").append(lhs.getName());
-  // this.asm_.append(", tmp_, plaintext_modulus);\n");
-  // break;
-  // case "!=":
-  // append_idx("tmp_ = cc->Encrypt(keyPair.publicKey, tmp);\n");
-  // append_idx(res_);
-  // this.asm_.append(" = neq(cc, ").append(lhs.getName());
-  // this.asm_.append(", tmp_, plaintext_modulus);\n");
-  // break;
-  // case "<":
-  // append_idx("tmp_ = cc->Encrypt(keyPair.publicKey, tmp);\n");
-  // append_idx(res_);
-  // this.asm_.append(" = lt(cc, ").append(lhs.getName());
-  // this.asm_.append(", tmp_, keyPair.publicKey, plaintext_modulus);\n");
-  // break;
-  // case "<=":
-  // append_idx("tmp_ = cc->Encrypt(keyPair.publicKey, tmp);\n");
-  // append_idx(res_);
-  // this.asm_.append(" = leq(cc, ").append(lhs.getName());
-  // this.asm_.append(", tmp_, keyPair.publicKey, plaintext_modulus);\n");
-  // break;
-  // case "<<":
-  // case ">>":
-  // case ">>>":
-  // throw new Exception("Shift over encrypted integers is not possible");
-  // default:
-  // throw new Exception("Bad operand types: " + lhs_type + " " + op + " " +
-  // rhs_type);
-
-  // }
-  // return new Var_t(ret_type, res_);
-  // } else if (lhs_type.startsWith("Enc") && rhs_type.startsWith("Enc")) {
-  // String res_ = new_ctxt_tmp(ret_type);
-  // if ("&".equals(op) || "|".equals(op) || "^".equals(op) || "<<".equals(op) ||
-  // ">>".equals(op) || "+".equals(op) || "-".equals(op) || "*".equals(op) ||
-  // "/".equals(op) || "%".equals(op)) {
-  // append_idx("for ( int i = 0; i < " + this.ring_dim_ + "; ++i) {\n");
-  // this.indent_ += 2;
-  // append_idx(res_ + "[i]" + "=" + lhs.getName() + "[i]" + op + rhs.getName() +
-  // "[i];\n");
-  // this.indent_ -= 2;
-  // append_idx("}\n");
-  // } else if ("==".equals(op) || "!=".equals(op) || "<".equals(op) ||
-  // "<=".equals(op) || ">".equals(op) || ">=".equals(op) ||
-  // "&&".equals(op) || "||".equals(op)) {
-  // append_idx(res_ + " = ");
-  // this.asm_.append(lhs.getName() + op + rhs.getName() + ";\n");
-  // }
-  // return new Var_t(ret_type, res_);
-  // }
-  // throw new Exception("Bad operand types: " + lhs_type + " " + op + " " +
-  // rhs_type);
 
   /**
    * f0 -> "~"
@@ -644,100 +498,6 @@ public class T2_2_CLEAR extends T2_Compiler {
    * f6 -> Expression()
    */
   public Var_t visit(TernaryExpression n) throws Exception {
-    // Var_t cond = n.f1.accept(this);
-    // Var_t e1 = n.f4.accept(this);
-    // Var_t e2 = n.f6.accept(this);
-    // String cond_t = st_.findType(cond);
-    // String e1_t = st_.findType(e1);
-    // String e2_t = st_.findType(e2);
-    // String res_;
-    // if (cond_t.equals("bool") || cond_t.equals("int") || cond_t.equals("double"))
-    // {
-    // if (e1_t.equals(e2_t)) {
-    // res_ = "tmp_" + (++tmp_cnt_);
-    // append_idx(this.st_.backend_types.get(e1_t) + " " + res_ + " = (");
-    // this.asm_.append(cond.getName()).append(")").append(" ?
-    // ").append(e1.getName());
-    // this.asm_.append(" : ").append(e2.getName()).append(";\n");
-    // return new Var_t(e1_t, res_);
-    // } else if ((e1_t.equals("EncInt") || e1_t.equals("EncDouble")) &&
-    // (e2_t.equals("int") || e2_t.equals("double"))) {
-    // res_ = new_ctxt_tmp();
-    // String e2_enc = new_ctxt_tmp();
-    // encrypt(e2_enc, new String[] { e2.getName() });
-    // this.asm_.append(";\n");
-    // append_idx(res_ + " = (" + cond.getName() + ") ? " + e1.getName());
-    // this.asm_.append(" : ").append(e2_enc).append(";\n");
-    // return new Var_t(e1_t, res_);
-    // } else if ((e2_t.equals("EncInt") || e2_t.equals("EncDouble")) &&
-    // (e1_t.equals("int") || e1_t.equals("double"))) {
-    // res_ = new_ctxt_tmp();
-    // String e1_enc = new_ctxt_tmp();
-    // encrypt(e1_enc, new String[] { e1.getName() });
-    // this.asm_.append(";\n");
-    // append_idx(res_ + " = (" + cond.getName() + ") ? " + e1_enc);
-    // this.asm_.append(" : ").append(e2.getName()).append(";\n");
-    // return new Var_t(e2_t, res_);
-    // }
-    // } else if (cond_t.equals("EncInt") || cond_t.equals("EncDouble")) {
-    // res_ = new_ctxt_tmp();
-    // if (e1_t.equals(e2_t)) {
-    // if (e1_t.equals("int") || e1_t.equals("double")) {
-    // String e1_enc = new_ctxt_tmp(), e2_enc = new_ctxt_tmp();
-    // encrypt(e1_enc, new String[] { e1.getName() });
-    // this.asm_.append(";\n");
-    // encrypt(e2_enc, new String[] { e2.getName() });
-    // this.asm_.append(";\n");
-    // if (this.is_binary_) {
-    // append_idx(res_ + " = mux_bin(evaluator, batch_encoder, relin_keys, ");
-    // } else {
-    // append_idx(res_ + " = mux(evaluator, relin_keys, ");
-    // }
-    // this.asm_.append(cond.getName()).append(", ").append(e1_enc);
-    // this.asm_.append(", ").append(e2_enc).append(", slots);\n");
-    // return new Var_t("EncInt", res_);
-    // } else if (e1_t.equals("EncInt") || e1_t.equals("EncDouble")) {
-    // if (this.is_binary_) {
-    // append_idx(res_ + " = mux_bin(evaluator, batch_encoder, relin_keys, ");
-    // } else {
-    // append_idx(res_ + " = mux(evaluator, relin_keys, ");
-    // }
-    // this.asm_.append(cond.getName()).append(", ").append(e1.getName());
-    // this.asm_.append(", ").append(e2.getName()).append(", slots);\n");
-    // return new Var_t(e1_t, res_);
-    // }
-    // } else if ((e1_t.equals("EncInt") || e1_t.equals("EncDouble")) &&
-    // (e2_t.equals("int") || e2_t.equals("double"))) {
-    // String e2_enc = new_ctxt_tmp();
-    // encrypt(e2_enc, new String[] { e2.getName() });
-    // this.asm_.append(";\n");
-    // if (this.is_binary_) {
-    // append_idx(res_ + " = mux_bin(evaluator, batch_encoder, relin_keys, ");
-    // } else {
-    // append_idx(res_ + " = mux(evaluator, relin_keys, ");
-    // }
-    // this.asm_.append(cond.getName()).append(", ").append(e1.getName());
-    // this.asm_.append(", ").append(e2_enc).append(", slots);\n");
-    // return new Var_t(e1_t, res_);
-    // } else if ((e2_t.equals("EncInt") || e2_t.equals("EncDouble")) &&
-    // (e1_t.equals("int") || e1_t.equals("double"))) {
-    // String e1_enc = new_ctxt_tmp();
-    // encrypt(e1_enc, new String[] { e1.getName() });
-    // this.asm_.append(";\n");
-    // if (this.is_binary_) {
-    // append_idx(res_ + " = mux_bin(evaluator, batch_encoder, relin_keys, ");
-    // } else {
-    // append_idx(res_ + " = mux(evaluator, relin_keys, ");
-    // }
-    // this.asm_.append(cond.getName()).append(", ").append(e1_enc);
-    // this.asm_.append(", ").append(e2.getName()).append(", slots);\n");
-    // return new Var_t(e2_t, res_);
-    // }
-    // }
-    // throw new RuntimeException("Ternary condition error: " +
-    // cond.getName() + " type: " + cond_t +
-    // e1.getName() + " type: " + e1_t +
-    // e2.getName() + " type: " + e2_t);
     throw new RuntimeException("TODO : TernaryExpression");
   }
 }
