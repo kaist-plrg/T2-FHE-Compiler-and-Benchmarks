@@ -23,6 +23,7 @@ public class Main {
       System.exit(-1);
     }
     String input_file = null;
+    String output_path = null;
     HE_BACKEND backend_ = HE_BACKEND.NONE;
     boolean debug_ = false, print_bin_ = false, bootstrapping_ = false;
     int word_sz_ = 0;
@@ -83,6 +84,14 @@ public class Main {
           System.exit(-1);
         }
         ring_dim_ = Integer.parseInt(args[i]);
+      } else if (arg.equalsIgnoreCase("-O") ||
+          arg.equalsIgnoreCase("--O")) {
+        if (++i >= args.length) {
+          System.out.println("[ \033[0;31m X \033[0m ] Output path " +
+              "must be passed after the -o parameter.");
+          System.exit(-1);
+        }
+        output_path = args[i];
       } else {
         input_file = arg;
       }
@@ -195,7 +204,9 @@ public class Main {
       }
       t2dsl_goal.accept(dsl_compiler);
       String code = dsl_compiler.get_asm();
-      String output_path = path + suffix;
+      if (output_path == null) {
+        output_path = path + suffix;
+      }
       writer = new PrintWriter(output_path);
       writer.print(code);
       writer.close();
