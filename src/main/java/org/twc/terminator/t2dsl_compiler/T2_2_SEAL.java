@@ -705,8 +705,8 @@ public class T2_2_SEAL extends T2_Compiler {
         } else {
           append_idx("decryptor.decrypt(");
           this.asm_.append(expr.getName()).append(", tmp);\n");
-          append_idx("cout << \"dec(");
-          this.asm_.append(expr.getName()).append(") = \" << tmp << endl");
+          append_idx("cout <<");
+          this.asm_.append("tmp << endl");
         }
         break;
       default:
@@ -765,7 +765,6 @@ public class T2_2_SEAL extends T2_Compiler {
       this.asm_.append(tmp_vec).append(" = decrypt_array_batch_to_nums(\n");
       append_idx("  decryptor, batch_encoder, ");
       this.asm_.append(expr.getName()).append(", slots);\n");
-      append_idx("cout << \"dec(" + expr.getName() + ") = \";\n");
       append_idx("for (int " + this.tmp_i + " = 0; ");
       this.asm_.append(this.tmp_i).append(" < ").append(size.getName());
       this.asm_.append("; ++").append(this.tmp_i).append(") {\n");
