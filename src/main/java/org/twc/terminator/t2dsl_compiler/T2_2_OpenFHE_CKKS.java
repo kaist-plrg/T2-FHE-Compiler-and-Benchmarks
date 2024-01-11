@@ -27,7 +27,7 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
     append_idx("keyPair = cc->KeyGen();\n");
     append_idx("cc->EvalMultKeyGen(keyPair.secretKey);\n");
 
-    append_idx("size_t slots(cc->GetRingDimension());\n");
+    append_idx("size_t slots(cc->GetRingDimension()/2);\n");
     append_idx("vector<complex<double>> " + this.vec + "(slots);\n");
     append_idx("Plaintext tmp;\n");
     append_idx("int rots_num = 20;\n");
