@@ -16,7 +16,7 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
   }
 
   protected void append_keygen() {
-    append_idx("CCParams<CryptoContextBFVRNS> parameters;\n");
+    append_idx("CCParams<CryptoContextCKKSRNS> parameters;\n");
     append_idx("parameters.SetPlaintextModulus(65537);\n");
     append_idx("parameters.SetMultiplicativeDepth(5);\n");
     append_idx("CryptoContext<DCRTPoly> cc = GenCryptoContext(parameters);\n");
