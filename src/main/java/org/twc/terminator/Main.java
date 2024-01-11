@@ -186,8 +186,7 @@ public class Main {
           if (scheme_ == ENC_TYPE.ENC_INT) {
             dsl_compiler = new T2_2_OpenFHE(symbol_table, config, word_sz_, ring_dim_);
           } else if (scheme_ == ENC_TYPE.ENC_DOUBLE) {
-            throw new RuntimeException("TODO.");
-            // dsl_compiler = new T2_2_OpenFHE_CKKS(symbol_table, config, ring_dim_);
+            dsl_compiler = new T2_2_OpenFHE_CKKS(symbol_table, config, ring_dim_);
           }
           break;
         case HELIB:
