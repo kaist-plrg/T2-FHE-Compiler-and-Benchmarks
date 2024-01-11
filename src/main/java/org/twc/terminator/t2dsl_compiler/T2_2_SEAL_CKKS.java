@@ -447,8 +447,7 @@ public class T2_2_SEAL_CKKS extends T2_2_SEAL {
         String tmp_vec = "tmp_vec_" + (++tmp_cnt_);
         append_idx("vector<double> " + tmp_vec + ";\n");
         append_idx("encoder.decode(tmp, " + tmp_vec + ");\n");
-        append_idx("cout << \"dec(");
-        this.asm_.append(expr.getName()).append(") = \" << fixed << setprecision(1) << ");
+        append_idx("cout << fixed << setprecision(1) << ");
         this.asm_.append(tmp_vec).append("[0]").append(" << endl");
         break;
       default:
@@ -482,7 +481,6 @@ public class T2_2_SEAL_CKKS extends T2_2_SEAL {
     this.asm_.append(expr.getName()).append(", tmp);\n");
     append_idx("vector<double> " + tmp_vec + ";\n");
     append_idx("encoder.decode(tmp, " + tmp_vec + ");\n");
-    append_idx("cout << \"dec(" + expr.getName() + ") = \";\n");
     append_idx("for (int i = 0; i < ");
     this.asm_.append(size.getName()).append("; ++i) {\n");
     append_idx("  cout << fixed << setprecision(1) << " + tmp_vec + "[i] << \" \";\n");
