@@ -38,6 +38,7 @@ if [ ! -d "OpenFHE/build" ] ; then
     cmake ..
     make -j 10
     sudo make install
+    sudo ln -s /usr/local/lib/libOpenFHEcore.so.1 /usr/lib/libOpenFHEcore.so.1
     cd ../..
 else
     echo "Found in cache"

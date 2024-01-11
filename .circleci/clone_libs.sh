@@ -15,7 +15,7 @@ if [ ! -d "palisade-release" ] ; then
 fi
 
 if [ ! -d "OpenFHE" ] ; then
-    git clone https://github.com/openfheorg/openfhe-development.git
+    git clone https://github.com/openfheorg/openfhe-development.git OpenFHE
 fi
 
 if [ ! -d "tfhe" ] ; then

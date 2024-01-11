@@ -10,7 +10,7 @@ import java.io.*;
 public class Main {
 
   enum HE_BACKEND {
-    NONE, SEAL, TFHE, PALISADE, HELIB, LATTIGO, CLEAR
+    NONE, SEAL, TFHE, PALISADE, OPENFHE, HELIB, LATTIGO, CLEAR
   }
 
   public enum ENC_TYPE {
@@ -48,6 +48,9 @@ public class Main {
       } else if (arg.equalsIgnoreCase("-PALISADE") ||
           arg.equalsIgnoreCase("--PALISADE")) {
         backend_ = HE_BACKEND.PALISADE;
+      } else if (arg.equalsIgnoreCase("-OPENFHE") ||
+          arg.equalsIgnoreCase("--OPENFHE")) {
+        backend_ = HE_BACKEND.OPENFHE;
       } else if (arg.equalsIgnoreCase("-HELIB") ||
           arg.equalsIgnoreCase("--HELIB")) {
         backend_ = HE_BACKEND.HELIB;
@@ -177,6 +180,14 @@ public class Main {
             dsl_compiler = new T2_2_PALISADE(symbol_table, config, word_sz_, ring_dim_);
           } else if (scheme_ == ENC_TYPE.ENC_DOUBLE) {
             dsl_compiler = new T2_2_PALISADE_CKKS(symbol_table, config, ring_dim_);
+          }
+          break;
+        case OPENFHE:
+          if (scheme_ == ENC_TYPE.ENC_INT) {
+            dsl_compiler = new T2_2_OpenFHE(symbol_table, config, word_sz_, ring_dim_);
+          } else if (scheme_ == ENC_TYPE.ENC_DOUBLE) {
+            throw new RuntimeException("TODO.");
+            // dsl_compiler = new T2_2_OpenFHE_CKKS(symbol_table, config, ring_dim_);
           }
           break;
         case HELIB:
