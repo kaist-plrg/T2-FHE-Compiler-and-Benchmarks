@@ -27,7 +27,7 @@ public class Main {
     HE_BACKEND backend_ = HE_BACKEND.NONE;
     boolean debug_ = false, print_bin_ = false, bootstrapping_ = false;
     int word_sz_ = 0;
-    int ring_dim_ = 4096;
+    int ring_dim_ = 16384;
     String config = "path to config";
     for (int i = 0; i < args.length; i++) {
       String arg = args[i];
