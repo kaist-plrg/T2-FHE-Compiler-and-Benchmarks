@@ -30,6 +30,19 @@ else
     echo "Found in cache"
 fi
 
+echo "Build OpenFHE v1.1.2"
+if [ ! -d "OpenFHE/build" ] ; then
+    cd ./OpenFHE
+    git reset --hard b2869ae
+    mkdir -p build && cd build
+    cmake ..
+    make -j 10
+    sudo make install
+    cd ../..
+else
+    echo "Found in cache"
+fi
+
 echo "Build SEAL v4.1.1"
 if [ ! -d "SEAL/build" ] ; then
     cd ./SEAL

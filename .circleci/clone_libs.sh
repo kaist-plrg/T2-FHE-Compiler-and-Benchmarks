@@ -14,6 +14,10 @@ if [ ! -d "palisade-release" ] ; then
     git clone https://gitlab.com/palisade/palisade-release.git
 fi
 
+if [ ! -d "OpenFHE" ] ; then
+    git clone https://github.com/openfheorg/openfhe-development.git
+fi
+
 if [ ! -d "tfhe" ] ; then
     git clone https://github.com/tfhe/tfhe.git
 fi
