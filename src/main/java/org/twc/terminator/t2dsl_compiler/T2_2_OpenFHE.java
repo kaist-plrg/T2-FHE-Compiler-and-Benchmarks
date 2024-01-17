@@ -32,10 +32,11 @@ public class T2_2_OpenFHE extends T2_Compiler {
       append_idx("parameters.SetRingDim(" + ring_dim_ + ");\n");
     }
     if (plain_mod_ == 0) {
-      append_idx("parameters.SetPlaintextModulus(65537);\n");
+      append_idx("size_t plaintext_modulus = 65537;\n");
     } else {
-      append_idx("parameters.SetPlaintextModulus(" + plain_mod_ + ");\n");
+      append_idx("size_t plaintext_modulus = " + plain_mod_ + ";\n");
     }
+    append_idx("parameters.SetPlaintextModulus(plaintext_modulus);\n");
     if (mul_depth_ == 0) {
       append_idx("parameters.SetMultiplicativeDepth(2);\n");
     } else {
