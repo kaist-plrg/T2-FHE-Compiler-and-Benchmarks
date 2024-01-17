@@ -15,8 +15,13 @@ public class T2_2_OpenFHE extends T2_Compiler {
 
   public T2_2_OpenFHE(SymbolTable st, String config_file_path, int word_sz) {
     super(st, config_file_path, word_sz);
-    this.st_.backend_types.put("EncInt", "Ciphertext<DCRTPoly>");
-    this.st_.backend_types.put("EncInt[]", "vector<Ciphertext<DCRTPoly>>");
+    if (this.is_binary_) {
+      this.st_.backend_types.put("EncInt", "vector<Ciphertext<DCRTPoly>>");
+      this.st_.backend_types.put("EncInt[]", "vector<vector<Ciphertext<DCRTPoly>>>");
+    } else {
+      this.st_.backend_types.put("EncInt", "Ciphertext<DCRTPoly>");
+      this.st_.backend_types.put("EncInt[]", "vector<Ciphertext<DCRTPoly>>");
+    }
   }
 
   protected void append_keygen() {
@@ -56,17 +61,49 @@ public class T2_2_OpenFHE extends T2_Compiler {
     append_idx("   rots[" + this.tmp_i + " - 1] = -(" + this.tmp_i + " / 2);\n");
     append_idx("}\n");
     append_idx("cc->EvalRotateKeyGen(keyPair.secretKey, rots);\n");
-    append_idx("Ciphertext<DCRTPoly> tmp_;\n\n");
+    if (is_binary_) {
+      append_idx("vector<vector<int64_t>> " + this.bin_vec);
+      this.asm_.append("(word_sz, vector<int64_t>(slots, 0));\n");
+      append_idx("vector<Ciphertext<DCRTPoly>> tmp_(word_sz);\n\n");
+    } else {
+      append_idx("Ciphertext<DCRTPoly> tmp_;\n\n");
+    }
   }
 
   protected void encrypt(String dst, String[] src_lst) {
-    if (src_lst.length != 1)
-      throw new RuntimeException("encrypt: list length");
-    append_idx("fill(" + this.vec + ".begin(), " + this.vec);
-    this.asm_.append(".end(), ").append(src_lst[0]).append(");\n");
-    append_idx("tmp = cc->MakePackedPlaintext(");
-    this.asm_.append(this.vec).append(");\n");
-    append_idx(dst + " = cc->Encrypt(keyPair.publicKey, tmp)");
+    if (this.is_binary_) {
+      for (int slot = 0; slot < src_lst.length; slot++) {
+        String src = src_lst[slot];
+        boolean is_numeric = isNumeric(src);
+        if (is_numeric) {
+          int[] bin_array = int_to_bin_array(Long.parseLong(src));
+          for (int i = 0; i < this.word_sz_; i++) {
+            append_idx(this.bin_vec + "[" + i + "][" + slot + "] = " + bin_array[i] + ";\n");
+          }
+        } else {
+          for (int i = 0; i < this.word_sz_; i++) {
+            append_idx(this.bin_vec + "[" + i + "][" + slot + "] = (int64_t)(");
+            this.asm_.append(src).append(" >> ").append(this.word_sz_ - i - 1);
+            this.asm_.append(") & 1;\n");
+          }
+        }
+      }
+      for (int i = 0; i < this.word_sz_; i++) {
+        append_idx("tmp = cc->MakePackedPlaintext(");
+        this.asm_.append(this.bin_vec).append("[").append(i).append("]);\n");
+        append_idx(dst + "[" + i + "] = cc->Encrypt(keyPair.publicKey, tmp)");
+        if (i < this.word_sz_ - 1)
+          this.asm_.append(";\n");
+      }
+    } else {
+      if (src_lst.length != 1)
+        throw new RuntimeException("encrypt: list length");
+      append_idx("fill(" + this.vec + ".begin(), " + this.vec);
+      this.asm_.append(".end(), ").append(src_lst[0]).append(");\n");
+      append_idx("tmp = cc->MakePackedPlaintext(");
+      this.asm_.append(this.vec).append(");\n");
+      append_idx(dst + " = cc->Encrypt(keyPair.publicKey, tmp)");
+    }
   }
 
   /**
@@ -95,6 +132,9 @@ public class T2_2_OpenFHE extends T2_Compiler {
     append_idx("using namespace std;\n\n");
     append_idx("int main(void) {\n");
     this.indent_ = 2;
+    if (this.is_binary_) {
+      append_idx("size_t word_sz = " + this.word_sz_ + ";\n");
+    }
     if (!read_keygen_from_file()) {
       append_keygen();
     }
@@ -125,6 +165,15 @@ public class T2_2_OpenFHE extends T2_Compiler {
       // if EncInt[] <- int[]
       append_idx(lhs.getName());
       this.asm_.append(".resize(").append(rhs_name).append(".size());\n");
+      if (this.is_binary_) {
+        append_idx("for (size_t " + this.tmp_i + " = 0; " + this.tmp_i + " < ");
+        this.asm_.append(rhs_name).append(".size(); ++").append(this.tmp_i);
+        this.asm_.append(") {\n");
+        this.indent_ += 2;
+        append_idx(lhs.getName() + "[" + this.tmp_i + "].resize(word_sz);\n");
+        this.indent_ -= 2;
+        append_idx("}\n");
+      }
       append_idx("for (size_t " + this.tmp_i + " = 0; " + this.tmp_i + " < ");
       this.asm_.append(rhs_name).append(".size(); ++").append(this.tmp_i);
       this.asm_.append(") {\n");
@@ -135,14 +184,29 @@ public class T2_2_OpenFHE extends T2_Compiler {
       this.indent_ -= 2;
       append_idx("}\n");
     } else if (lhs_type.equals(rhs_type)) {
-      append_idx(lhs.getName());
-      if (rhs_name.startsWith("resize(")) {
-        this.asm_.append(".");
+      // if the destination has the same type as the source.
+      if (this.is_binary_ && (lhs_type.equals("EncInt") || lhs_type.equals("EncInt[]"))) {
+        if (rhs_name.startsWith("resize(")) {
+          int rhs_new_size = 0;
+          rhs_new_size = Integer.parseInt(rhs_name.substring(7, rhs_name.length() - 1));
+          append_idx(lhs.getName() + ".resize(" + rhs_new_size + ");\n");
+          for (int i = 0; i < rhs_new_size; i++) {
+            append_idx(lhs.getName() + "[" + i + "].resize(word_sz);\n");
+          }
+        } else {
+          append_idx(lhs.getName() + " = " + rhs_name);
+          this.semicolon_ = true;
+        }
       } else {
-        this.asm_.append(" = ");
+        append_idx(lhs.getName());
+        if (rhs_name.startsWith("resize(")) {
+          this.asm_.append(".");
+        } else {
+          this.asm_.append(" = ");
+        }
+        this.asm_.append(rhs_name);
+        this.semicolon_ = true;
       }
-      this.asm_.append(rhs_name);
-      this.semicolon_ = true;
     } else {
       throw new Exception("Error assignment statement between different " +
           "types: " + lhs_type + ", " + rhs_type);
@@ -158,11 +222,17 @@ public class T2_2_OpenFHE extends T2_Compiler {
     Var_t id = n.f0.accept(this);
     String id_type = st_.findType(id);
     if (id_type.equals("EncInt")) {
-      append_idx("fill(" + this.vec + ".begin(), " + this.vec);
-      this.asm_.append(".end(), 1);\n");
-      append_idx("tmp = cc->MakePackedPlaintext(" + this.vec + ");\n");
-      append_idx(id.getName());
-      this.asm_.append(" = cc->EvalAdd(tmp, ").append(id.getName()).append(");\n");
+      if (this.is_binary_) {
+        append_idx(id.getName());
+        this.asm_.append(" = ").append("inc_bin(cc, ").append(id.getName());
+        this.asm_.append(", keyPair.publicKey);\n");
+      } else {
+        append_idx("fill(" + this.vec + ".begin(), " + this.vec);
+        this.asm_.append(".end(), 1);\n");
+        append_idx("tmp = cc->MakePackedPlaintext(" + this.vec + ");\n");
+        append_idx(id.getName());
+        this.asm_.append(" = cc->EvalAdd(tmp, ").append(id.getName()).append(");\n");
+      }
     } else {
       append_idx(id.getName());
       this.asm_.append("++");
@@ -179,11 +249,17 @@ public class T2_2_OpenFHE extends T2_Compiler {
     Var_t id = n.f0.accept(this);
     String id_type = st_.findType(id);
     if (id_type.equals("EncInt")) {
-      append_idx("fill(" + this.vec + ".begin(), " + this.vec);
-      this.asm_.append(".end(), 1);\n");
-      append_idx("tmp = cc->MakePackedPlaintext(" + this.vec + ");\n");
-      append_idx(id.getName());
-      this.asm_.append(" = cc->EvalSub(").append(id.getName()).append(", tmp);\n");
+      if (this.is_binary_) {
+        append_idx(id.getName());
+        this.asm_.append(" = ").append("dec_bin(cc, ").append(id.getName());
+        this.asm_.append(", keyPair.publicKey);\n");
+      } else {
+        append_idx("fill(" + this.vec + ".begin(), " + this.vec);
+        this.asm_.append(".end(), 1);\n");
+        append_idx("tmp = cc->MakePackedPlaintext(" + this.vec + ");\n");
+        append_idx(id.getName());
+        this.asm_.append(" = cc->EvalSub(").append(id.getName()).append(", tmp);\n");
+      }
     } else {
       append_idx(id.getName());
       this.asm_.append("--");
@@ -208,43 +284,94 @@ public class T2_2_OpenFHE extends T2_Compiler {
       this.asm_.append(" ").append(op).append(" ");
       this.asm_.append(rhs.getName());
     } else if (lhs_type.equals("EncInt") && rhs_type.equals("EncInt")) {
-      append_idx(lhs.getName());
-      switch (op) {
-        case "+=":
-          this.asm_.append(" = cc->EvalAdd(");
-          break;
-        case "*=":
-          this.asm_.append(" = cc->EvalMultAndRelinearize(");
-          break;
-        case "-=":
-          this.asm_.append(" = cc->EvalSub(");
-          break;
-        default:
-          throw new Exception("Bad operand types: " + lhs_type + " " + op + " " + rhs_type);
+      if (this.is_binary_) {
+        append_idx(lhs.getName());
+        switch (op) {
+          case "+=":
+            this.asm_.append(" = add_bin(cc, ");
+            break;
+          case "*=":
+            this.asm_.append(" = mult_bin(cc, ");
+            break;
+          case "-=":
+            this.asm_.append(" = sub_bin(cc, ");
+            break;
+          default:
+            throw new Exception("Bad operand types: " + lhs_type + " " + op + " " + rhs_type);
+        }
+        this.asm_.append(lhs.getName()).append(", ").append(rhs.getName());
+        this.asm_.append(", keyPair.publicKey)");
+      } else {
+        append_idx(lhs.getName());
+        switch (op) {
+          case "+=":
+            this.asm_.append(" = cc->EvalAdd(");
+            break;
+          case "*=":
+            this.asm_.append(" = cc->EvalMultAndRelinearize(");
+            break;
+          case "-=":
+            this.asm_.append(" = cc->EvalSub(");
+            break;
+          default:
+            throw new Exception("Bad operand types: " + lhs_type + " " + op + " " + rhs_type);
+        }
+        this.asm_.append(lhs.getName()).append(", ").append(rhs.getName()).append(")");
       }
-      this.asm_.append(lhs.getName()).append(", ").append(rhs.getName()).append(")");
-
     } else if (lhs_type.equals("EncInt") && rhs_type.equals("int")) {
-      append_idx("fill(" + this.vec + ".begin(), " + this.vec);
-      this.asm_.append(".end(), ").append(rhs.getName()).append(");\n");
-      append_idx("tmp = cc->MakePackedPlaintext(");
-      this.asm_.append(this.vec).append(");\n");
-      append_idx(lhs.getName());
-      switch (op) {
-        case "+=":
-          this.asm_.append(" = cc->EvalAdd(");
-          break;
-        case "*=":
-          this.asm_.append(" = cc->EvalMult(");
-          break;
-        case "-=":
-          this.asm_.append(" = cc->EvalSub(");
-          break;
-        default:
-          throw new Exception("Bad operand types: " + lhs_type + " " + op + " " + rhs_type);
+      if (this.is_binary_) {
+        encrypt("tmp_", new String[] { rhs.getName() });
+        this.asm_.append(";\n");
+        append_idx(lhs.getName());
+        switch (op) {
+          case "+=":
+            this.asm_.append(" = add_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", tmp_, keyPair.publicKey)");
+            break;
+          case "*=":
+            this.asm_.append(" = mult_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", tmp_, keyPair.publicKey)");
+            break;
+          case "-=":
+            this.asm_.append(" = sub_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", tmp_, keyPair.publicKey)");
+            break;
+          case "<<=":
+            this.asm_.append(" = shift_left_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", ").append(rhs.getName()).append(", keyPair.publicKey)");
+            break;
+          case ">>=":
+            this.asm_.append(" = shift_right_bin(").append(lhs.getName());
+            this.asm_.append(", ").append(rhs.getName()).append(")");
+            break;
+          case ">>>=":
+            this.asm_.append(" = shift_right_logical_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", ").append(rhs.getName()).append(", keyPair.publicKey)");
+            break;
+          default:
+            throw new Exception("Bad operand types: " + lhs_type + " " + op + " " + rhs_type);
+        }
+      } else {
+        append_idx("fill(" + this.vec + ".begin(), " + this.vec);
+        this.asm_.append(".end(), ").append(rhs.getName()).append(");\n");
+        append_idx("tmp = cc->MakePackedPlaintext(");
+        this.asm_.append(this.vec).append(");\n");
+        append_idx(lhs.getName());
+        switch (op) {
+          case "+=":
+            this.asm_.append(" = cc->EvalAdd(");
+            break;
+          case "*=":
+            this.asm_.append(" = cc->EvalMult(");
+            break;
+          case "-=":
+            this.asm_.append(" = cc->EvalSub(");
+            break;
+          default:
+            throw new Exception("Bad operand types: " + lhs_type + " " + op + " " + rhs_type);
+        }
+        this.asm_.append(lhs.getName()).append(", tmp)");
       }
-      this.asm_.append(lhs.getName()).append(", tmp)");
-
     }
     this.semicolon_ = true;
     return null;
@@ -272,42 +399,94 @@ public class T2_2_OpenFHE extends T2_Compiler {
       this.asm_.append(" ").append(rhs.getName());
     } else if (id_type.equals("EncInt[]")) {
       if (rhs_type.equals("EncInt")) {
-        append_idx(id.getName());
-        this.asm_.append("[").append(idx.getName()).append("]");
-        if (op.equals("+=")) {
-          this.asm_.append(" = cc->EvalAdd(");
-        } else if (op.equals("*=")) {
-          this.asm_.append(" = cc->EvalMultAndRelinearize(");
-        } else if (op.equals("-=")) {
-          this.asm_.append(" = cc->EvalSub(");
+        if (this.is_binary_) {
+          append_idx(id.getName() + "[" + idx.getName() + "] = ");
+          switch (op) {
+            case "+=":
+              this.asm_.append("add_bin(cc, ");
+              break;
+            case "*=":
+              this.asm_.append("mult_bin(cc, ");
+              break;
+            case "-=":
+              this.asm_.append("sub_bin(cc, ");
+              break;
+            default:
+              throw new Exception("Error in compound array assignment");
+          }
+          this.asm_.append(id.getName()).append("[").append(idx.getName());
+          this.asm_.append("], ").append(rhs.getName()).append(", keyPair.publicKey)");
         } else {
-          throw new Exception("Error in compound array assignment");
-        }
-        this.asm_.append(id.getName()).append("[").append(idx.getName());
-        this.asm_.append("], ").append(rhs.getName()).append(")");
-
-      } else if (rhs_type.equals("int")) {
-        append_idx("fill(" + this.vec + ".begin(), " + this.vec);
-        this.asm_.append(".end(), ").append(rhs.getName()).append(");\n");
-        append_idx("tmp = cc->MakePackedPlaintext(");
-        this.asm_.append(this.vec).append(");\n");
-        append_idx(id.getName() + "[" + idx.getName() + "]");
-        switch (op) {
-          case "+=":
+          append_idx(id.getName());
+          this.asm_.append("[").append(idx.getName()).append("]");
+          if (op.equals("+=")) {
             this.asm_.append(" = cc->EvalAdd(");
-            break;
-          case "*=":
-            this.asm_.append(" = cc->EvalMult(");
-            break;
-          case "-=":
+          } else if (op.equals("*=")) {
+            this.asm_.append(" = cc->EvalMultAndRelinearize(");
+          } else if (op.equals("-=")) {
             this.asm_.append(" = cc->EvalSub(");
-            break;
-          default:
-            throw new Exception("Compound array assignment:" + op + " " + rhs_type);
+          } else {
+            throw new Exception("Error in compound array assignment");
+          }
+          this.asm_.append(id.getName()).append("[").append(idx.getName());
+          this.asm_.append("], ").append(rhs.getName()).append(")");
         }
-        this.asm_.append(id.getName()).append("[").append(idx.getName());
-        this.asm_.append("]").append(", tmp)");
-
+      } else if (rhs_type.equals("int")) {
+        if (this.is_binary_) {
+          if ("<<=".equals(op)) {
+            this.asm_.append(" = shift_left_bin(cc, ").append(id.getName());
+            this.asm_.append("[").append(idx.getName()).append("], ");
+            this.asm_.append(rhs.getName()).append(", keyPair.publicKey)");
+          } else if (">>=".equals(op)) {
+            this.asm_.append(" = shift_right_bin(").append(id.getName());
+            this.asm_.append("[").append(idx.getName()).append("], ");
+            this.asm_.append(rhs.getName()).append(")");
+          } else if (">>>=".equals(op)) {
+            this.asm_.append(" = shift_right_logical_bin(cc, ").append(id.getName());
+            this.asm_.append("[").append(idx.getName()).append("], ");
+            this.asm_.append(rhs.getName()).append(", keyPair.publicKey)");
+          } else {
+            encrypt("tmp_", new String[] { rhs.getName() });
+            this.asm_.append(";\n");
+            append_idx(id.getName() + "[" + idx.getName() + "]");
+            if ("+=".equals(op)) {
+              this.asm_.append(" = add_bin(cc, ").append(id.getName());
+              this.asm_.append("[").append(idx.getName()).append("]");
+              this.asm_.append(", tmp_, keyPair.publicKey)");
+            } else if ("*=".equals(op)) {
+              this.asm_.append(" = mult_bin(cc, ").append(id.getName());
+              this.asm_.append("[").append(idx.getName()).append("]");
+              this.asm_.append(", tmp_, keyPair.publicKey)");
+            } else if ("-=".equals(op)) {
+              this.asm_.append(" = sub_bin(cc, ").append(id.getName());
+              this.asm_.append("[").append(idx.getName()).append("]");
+              this.asm_.append(", tmp_, keyPair.publicKey)");
+            } else {
+              throw new Exception("Encrypt and move to temporary var.");
+            }
+          }
+        } else {
+          append_idx("fill(" + this.vec + ".begin(), " + this.vec);
+          this.asm_.append(".end(), ").append(rhs.getName()).append(");\n");
+          append_idx("tmp = cc->MakePackedPlaintext(");
+          this.asm_.append(this.vec).append(");\n");
+          append_idx(id.getName() + "[" + idx.getName() + "]");
+          switch (op) {
+            case "+=":
+              this.asm_.append(" = cc->EvalAdd(");
+              break;
+            case "*=":
+              this.asm_.append(" = cc->EvalMult(");
+              break;
+            case "-=":
+              this.asm_.append(" = cc->EvalSub(");
+              break;
+            default:
+              throw new Exception("Compound array assignment:" + op + " " + rhs_type);
+          }
+          this.asm_.append(id.getName()).append("[").append(idx.getName());
+          this.asm_.append("]").append(", tmp)");
+        }
       }
     } else {
       throw new Exception("error in array assignment");
@@ -380,19 +559,31 @@ public class T2_2_OpenFHE extends T2_Compiler {
         this.asm_.append(" };\n");
         break;
       case "EncInt":
-        String tmp_vec = "tmp_vec_" + (++tmp_cnt_);
-        append_idx("vector<int64_t> ");
-        this.asm_.append(tmp_vec).append(" = { ").append(exp.getName());
-        if (n.f4.present()) {
-          for (int i = 0; i < n.f4.size(); i++) {
-            this.asm_.append(", ").append((n.f4.nodes.get(i).accept(this)).getName());
+        if (this.is_binary_) {
+          String[] elems = new String[1 + n.f4.size()];
+          elems[0] = exp.getName();
+          if (n.f4.present()) {
+            for (int i = 0; i < n.f4.size(); i++) {
+              elems[i + 1] = (n.f4.nodes.get(i).accept(this)).getName();
+            }
           }
+          encrypt(id.getName(), elems);
+          this.asm_.append(";\n");
+        } else {
+          String tmp_vec = "tmp_vec_" + (++tmp_cnt_);
+          append_idx("vector<int64_t> ");
+          this.asm_.append(tmp_vec).append(" = { ").append(exp.getName());
+          if (n.f4.present()) {
+            for (int i = 0; i < n.f4.size(); i++) {
+              this.asm_.append(", ").append((n.f4.nodes.get(i).accept(this)).getName());
+            }
+          }
+          this.asm_.append(" };\n");
+          append_idx("tmp = cc->MakePackedPlaintext(");
+          this.asm_.append(tmp_vec).append(");\n");
+          append_idx(id.getName());
+          this.asm_.append(" = cc->Encrypt(keyPair.publicKey, tmp);\n");
         }
-        this.asm_.append(" };\n");
-        append_idx("tmp = cc->MakePackedPlaintext(");
-        this.asm_.append(tmp_vec).append(");\n");
-        append_idx(id.getName());
-        this.asm_.append(" = cc->Encrypt(keyPair.publicKey, tmp);\n");
         break;
       case "EncInt[]":
         String exp_var;
@@ -449,21 +640,32 @@ public class T2_2_OpenFHE extends T2_Compiler {
     String id_type = st_.findType(id);
     if (!id_type.equals("EncInt[]"))
       throw new RuntimeException("BatchArrayAssignmentStatement");
-    String tmp_vec = "tmp_vec_" + (++tmp_cnt_);
-    append_idx("vector<int64_t> ");
-    this.asm_.append(tmp_vec).append(" = { ").append(exp.getName());
-    if (n.f7.present()) {
-      for (int i = 0; i < n.f7.size(); i++) {
-        this.asm_.append(", ").append((n.f7.nodes.get(i).accept(this)).getName());
+    if (this.is_binary_) {
+      String[] elems = new String[1 + n.f7.size()];
+      elems[0] = exp.getName();
+      if (n.f7.present()) {
+        for (int i = 0; i < n.f7.size(); i++) {
+          elems[i + 1] = (n.f7.nodes.get(i).accept(this)).getName();
+        }
       }
+      encrypt(id.getName() + "[" + index.getName() + "]", elems);
+      this.asm_.append(";\n");
+    } else {
+      String tmp_vec = "tmp_vec_" + (++tmp_cnt_);
+      append_idx("vector<int64_t> ");
+      this.asm_.append(tmp_vec).append(" = { ").append(exp.getName());
+      if (n.f7.present()) {
+        for (int i = 0; i < n.f7.size(); i++) {
+          this.asm_.append(", ").append((n.f7.nodes.get(i).accept(this)).getName());
+        }
+      }
+      this.asm_.append(" };\n");
+      append_idx("tmp = cc->MakePackedPlaintext(");
+      this.asm_.append(tmp_vec).append(");\n");
+      append_idx(id.getName());
+      this.asm_.append("[").append(index.getName()).append("] = ");
+      this.asm_.append("cc->Encrypt(keyPair.publicKey, tmp);\n");
     }
-    this.asm_.append(" };\n");
-    append_idx("tmp = cc->MakePackedPlaintext(");
-    this.asm_.append(tmp_vec).append(");\n");
-    append_idx(id.getName());
-    this.asm_.append("[").append(index.getName()).append("] = ");
-    this.asm_.append("cc->Encrypt(keyPair.publicKey, tmp);\n");
-
     return null;
   }
 
@@ -483,12 +685,27 @@ public class T2_2_OpenFHE extends T2_Compiler {
         this.asm_.append(" << endl");
         break;
       case "EncInt":
-        append_idx("cc->Decrypt(keyPair.secretKey,");
-        this.asm_.append(expr.getName()).append(", &tmp);\n");
-        append_idx("tmp->SetLength(1);\n");
-        append_idx(this.vec + " = tmp->GetPackedValue();\n");
-        append_idx("cout << ");
-        this.asm_.append(this.vec).append("[0] << endl");
+        if (this.is_binary_) {
+          for (int i = 0; i < this.word_sz_; i++) {
+            append_idx("cc->Decrypt(keyPair.secretKey,");
+            this.asm_.append(expr.getName()).append("[").append(i).append("], &tmp);\n");
+            append_idx("tmp->SetLength(slots);\n");
+            append_idx(bin_vec + "[" + i + "] = tmp->GetPackedValue();\n");
+          }
+          append_idx("for (size_t " + this.tmp_i + " = 0; ");
+          this.asm_.append(this.tmp_i).append(" < word_sz; ++");
+          this.asm_.append(this.tmp_i).append(") {\n");
+          append_idx("  cout << " + bin_vec + "[" + this.tmp_i + "][0];\n");
+          append_idx("}\n");
+          append_idx("cout << endl");
+        } else {
+          append_idx("cc->Decrypt(keyPair.secretKey,");
+          this.asm_.append(expr.getName()).append(", &tmp);\n");
+          append_idx("tmp->SetLength(1);\n");
+          append_idx(this.vec + " = tmp->GetPackedValue();\n");
+          append_idx("cout << ");
+          this.asm_.append(this.vec).append("[0] << endl");
+        }
         break;
       default:
         throw new Exception("Bad type for print statement");
@@ -516,16 +733,40 @@ public class T2_2_OpenFHE extends T2_Compiler {
       size_type = st_.findType(size);
     if (!size_type.equals("int"))
       throw new RuntimeException("PrintBatchedStatement: size type");
-    append_idx("cc->Decrypt(keyPair.secretKey, ");
-    this.asm_.append(expr.getName()).append(", ").append("&tmp);\n");
-    append_idx("tmp->SetLength(");
-    this.asm_.append(size.getName()).append(");\n");
-    append_idx(this.vec + "  = tmp->GetPackedValue();\n");
-    append_idx("for (auto v : " + this.vec + ") {\n");
-    append_idx("  cout << v << \" \";\n");
-    append_idx("}\n");
-    append_idx("cout << endl");
-
+    if (this.is_binary_) {
+      for (int i = 0; i < this.word_sz_; i++) {
+        append_idx("cc->Decrypt(keyPair.secretKey,");
+        this.asm_.append(expr.getName()).append("[").append(i).append("], &tmp);\n");
+        append_idx("tmp->SetLength(slots);\n");
+        append_idx(this.bin_vec + "[" + i + "] = tmp->GetPackedValue();\n");
+      }
+      String tmp_s = "tmp_s";
+      append_idx("for (int " + tmp_s + " = 0; ");
+      this.asm_.append(tmp_s).append(" < ").append(size.getName());
+      this.asm_.append("; ++").append(tmp_s).append(") {\n");
+      this.indent_ += 2;
+      append_idx("for (size_t " + this.tmp_i + " = 0; ");
+      this.asm_.append(this.tmp_i).append(" < word_sz; ++");
+      this.asm_.append(this.tmp_i).append(") {\n");
+      this.indent_ += 2;
+      append_idx("cout << " + this.bin_vec + "[" + this.tmp_i + "][" + tmp_s + "];\n");
+      this.indent_ -= 2;
+      append_idx("}\n");
+      append_idx("cout << \" \";\n");
+      this.indent_ -= 2;
+      append_idx("}\n");
+      append_idx("cout << endl");
+    } else {
+      append_idx("cc->Decrypt(keyPair.secretKey, ");
+      this.asm_.append(expr.getName()).append(", ").append("&tmp);\n");
+      append_idx("tmp->SetLength(");
+      this.asm_.append(size.getName()).append(");\n");
+      append_idx(this.vec + "  = tmp->GetPackedValue();\n");
+      append_idx("for (auto v : " + this.vec + ") {\n");
+      append_idx("  cout << v << \" \";\n");
+      append_idx("}\n");
+      append_idx("cout << endl");
+    }
     this.semicolon_ = true;
     return null;
   }
@@ -619,170 +860,352 @@ public class T2_2_OpenFHE extends T2_Compiler {
       }
     } else if (lhs_type.equals("int") && rhs_type.equals("EncInt")) {
       String res_ = new_ctxt_tmp();
-      String tmp_vec = "tmp_vec_" + (++tmp_cnt_);
-      append_idx("vector<int64_t> " + tmp_vec + "(slots, " + lhs.getName() + ");\n");
-      append_idx("tmp = cc->MakePackedPlaintext(" + tmp_vec + ");\n");
-      switch (op) {
-        case "+":
-          append_idx(res_ + " = cc->");
-          this.asm_.append("EvalAdd(").append(rhs.getName()).append(", tmp);\n");
-          break;
-        case "*":
-          append_idx(res_ + " = cc->");
-          this.asm_.append("EvalMult(").append(rhs.getName()).append(", tmp);\n");
-          break;
-        case "-":
-          append_idx(res_ + " = cc->");
-          this.asm_.append("EvalSub(tmp, ").append(rhs.getName()).append(");\n");
-          break;
-        case "^":
-          throw new Exception("XOR over encrypted integers is not possible");
-        case "&":
-          throw new Exception("Bitwise AND over encrypted integers is not possible");
-        case "|":
-          throw new Exception("Bitwise OR over encrypted integers is not possible");
-        case "==":
-          append_idx("tmp_ = cc->Encrypt(keyPair.publicKey, tmp);\n");
-          append_idx(res_);
-          this.asm_.append(" = eq(cc, tmp_, ").append(rhs.getName());
-          this.asm_.append(", plaintext_modulus);\n");
-          break;
-        case "!=":
-          append_idx("tmp_ = cc->Encrypt(keyPair.publicKey, tmp);\n");
-          append_idx(res_);
-          this.asm_.append(" = neq(cc, tmp_, ").append(rhs.getName());
-          this.asm_.append(", plaintext_modulus);\n");
-          break;
-        case "<":
-          append_idx("tmp_ = cc->Encrypt(keyPair.publicKey, tmp);\n");
-          append_idx(res_);
-          this.asm_.append(" = lt(cc, tmp_, ").append(rhs.getName());
-          this.asm_.append(", keyPair.publicKey, plaintext_modulus);\n");
-          break;
-        case "<=":
-          append_idx("tmp_ = cc->Encrypt(keyPair.publicKey, tmp);\n");
-          append_idx(res_);
-          this.asm_.append(" = leq(cc, tmp_, ").append(rhs.getName());
-          this.asm_.append(", keyPair.publicKey, plaintext_modulus);\n");
-          break;
-        case "<<":
-        case ">>":
-        case ">>>":
-          throw new Exception("Shift over encrypted integers is not possible");
-        default:
-          throw new Exception("Bad operand types: " + lhs_type + " " + op + " " + rhs_type);
+      if (this.is_binary_) {
+        encrypt("tmp_", new String[] { lhs.getName() });
+        this.asm_.append(";\n");
+        append_idx(res_);
+        switch (op) {
+          case "+":
+            this.asm_.append(" = add_bin(cc, tmp_, ").append(rhs.getName());
+            this.asm_.append(", keyPair.publicKey);\n");
+            ;
+            break;
+          case "*":
+            this.asm_.append(" = mult_bin(cc, tmp_, ").append(rhs.getName());
+            this.asm_.append(", keyPair.publicKey);\n");
+            ;
+            break;
+          case "-":
+            this.asm_.append(" = sub_bin(cc, tmp_, ").append(rhs.getName());
+            this.asm_.append(", keyPair.publicKey);\n");
+            ;
+            break;
+          case "^":
+            this.asm_.append(" = xor_bin(cc, tmp_, ").append(rhs.getName());
+            this.asm_.append(", plaintext_modulus);\n");
+            ;
+            break;
+          case "&":
+            this.asm_.append(" = and_bin(cc, tmp_, ").append(rhs.getName());
+            this.asm_.append(", plaintext_modulus);\n");
+            ;
+            break;
+          case "|":
+            this.asm_.append(" = or_bin(cc, tmp_, ").append(rhs.getName());
+            this.asm_.append(", plaintext_modulus);\n");
+            ;
+            break;
+          case "==":
+            this.asm_.append(" = eq_bin(cc, tmp_, ").append(rhs.getName());
+            this.asm_.append(", keyPair.publicKey);\n");
+            ;
+            break;
+          case "!=":
+            this.asm_.append(" = neq_bin(cc, tmp_, ").append(rhs.getName());
+            this.asm_.append(", keyPair.publicKey);\n");
+            ;
+            break;
+          case "<":
+            this.asm_.append(" = lt_bin(cc, tmp_, ").append(rhs.getName());
+            this.asm_.append(", word_sz, keyPair.publicKey);\n");
+            break;
+          case "<=":
+            this.asm_.append(" = leq_bin(cc, tmp_, ").append(rhs.getName());
+            this.asm_.append(", keyPair.publicKey);\n");
+            ;
+            break;
+          default:
+            throw new Exception("Bad operand types: " + lhs_type + " " + op + " " + rhs_type);
+        }
+      } else {
+        String tmp_vec = "tmp_vec_" + (++tmp_cnt_);
+        append_idx("vector<int64_t> " + tmp_vec + "(slots, " + lhs.getName() + ");\n");
+        append_idx("tmp = cc->MakePackedPlaintext(" + tmp_vec + ");\n");
+        switch (op) {
+          case "+":
+            append_idx(res_ + " = cc->");
+            this.asm_.append("EvalAdd(").append(rhs.getName()).append(", tmp);\n");
+            break;
+          case "*":
+            append_idx(res_ + " = cc->");
+            this.asm_.append("EvalMult(").append(rhs.getName()).append(", tmp);\n");
+            break;
+          case "-":
+            append_idx(res_ + " = cc->");
+            this.asm_.append("EvalSub(tmp, ").append(rhs.getName()).append(");\n");
+            break;
+          case "^":
+            throw new Exception("XOR over encrypted integers is not possible");
+          case "&":
+            throw new Exception("Bitwise AND over encrypted integers is not possible");
+          case "|":
+            throw new Exception("Bitwise OR over encrypted integers is not possible");
+          case "==":
+            append_idx("tmp_ = cc->Encrypt(keyPair.publicKey, tmp);\n");
+            append_idx(res_);
+            this.asm_.append(" = eq(cc, tmp_, ").append(rhs.getName());
+            this.asm_.append(", plaintext_modulus);\n");
+            break;
+          case "!=":
+            append_idx("tmp_ = cc->Encrypt(keyPair.publicKey, tmp);\n");
+            append_idx(res_);
+            this.asm_.append(" = neq(cc, tmp_, ").append(rhs.getName());
+            this.asm_.append(", plaintext_modulus);\n");
+            break;
+          case "<":
+            append_idx("tmp_ = cc->Encrypt(keyPair.publicKey, tmp);\n");
+            append_idx(res_);
+            this.asm_.append(" = lt(cc, tmp_, ").append(rhs.getName());
+            this.asm_.append(", keyPair.publicKey, plaintext_modulus);\n");
+            break;
+          case "<=":
+            append_idx("tmp_ = cc->Encrypt(keyPair.publicKey, tmp);\n");
+            append_idx(res_);
+            this.asm_.append(" = leq(cc, tmp_, ").append(rhs.getName());
+            this.asm_.append(", keyPair.publicKey, plaintext_modulus);\n");
+            break;
+          case "<<":
+          case ">>":
+          case ">>>":
+            throw new Exception("Shift over encrypted integers is not possible");
+          default:
+            throw new Exception("Bad operand types: " + lhs_type + " " + op + " " + rhs_type);
+        }
       }
       return new Var_t("EncInt", res_);
     } else if (lhs_type.equals("EncInt") && rhs_type.equals("int")) {
       String res_ = new_ctxt_tmp();
-      String tmp_vec = "tmp_vec_" + (++tmp_cnt_);
-      append_idx("vector<int64_t> " + tmp_vec + "(slots, " + rhs.getName() + ");\n");
-      append_idx("tmp = cc->MakePackedPlaintext(" + tmp_vec + ");\n");
-      switch (op) {
-        case "+":
-          append_idx(res_ + " = cc->");
-          this.asm_.append("EvalAdd(").append(lhs.getName()).append(", tmp);\n");
-          break;
-        case "*":
-          append_idx(res_ + " = cc->");
-          this.asm_.append("EvalMult(").append(lhs.getName()).append(", tmp);\n");
-          break;
-        case "-":
-          append_idx(res_ + " = cc->");
-          this.asm_.append("EvalSub(").append(lhs.getName()).append(", tmp);\n");
-          break;
-        case "^":
-          throw new Exception("XOR over encrypted integers is not possible");
-        case "&":
-          throw new Exception("Bitwise AND over encrypted integers is not possible");
-        case "|":
-          throw new Exception("Bitwise OR over encrypted integers is not possible");
-        case "==":
-          append_idx("tmp_ = cc->Encrypt(keyPair.publicKey, tmp);\n");
-          append_idx(res_);
-          this.asm_.append(" = eq(cc, ").append(lhs.getName());
-          this.asm_.append(", tmp_, plaintext_modulus);\n");
-          break;
-        case "!=":
-          append_idx("tmp_ = cc->Encrypt(keyPair.publicKey, tmp);\n");
-          append_idx(res_);
-          this.asm_.append(" = neq(cc, ").append(lhs.getName());
-          this.asm_.append(", tmp_, plaintext_modulus);\n");
-          break;
-        case "<":
-          append_idx("tmp_ = cc->Encrypt(keyPair.publicKey, tmp);\n");
-          append_idx(res_);
-          this.asm_.append(" = lt(cc, ").append(lhs.getName());
-          this.asm_.append(", tmp_, keyPair.publicKey, plaintext_modulus);\n");
-          break;
-        case "<=":
-          append_idx("tmp_ = cc->Encrypt(keyPair.publicKey, tmp);\n");
-          append_idx(res_);
-          this.asm_.append(" = leq(cc, ").append(lhs.getName());
-          this.asm_.append(", tmp_, keyPair.publicKey, plaintext_modulus);\n");
-          break;
-        case "<<":
-        case ">>":
-        case ">>>":
-          throw new Exception("Shift over encrypted integers is not possible");
-        default:
-          throw new Exception("Bad operand types: " + lhs_type + " " + op + " " + rhs_type);
+      if (this.is_binary_) {
+        encrypt("tmp_", new String[] { rhs.getName() });
+        this.asm_.append(";\n");
+        append_idx(res_);
+        switch (op) {
+          case "+":
+            this.asm_.append(" = add_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", tmp_, keyPair.publicKey);\n");
+            break;
+          case "*":
+            this.asm_.append(" = mult_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", tmp_, keyPair.publicKey);\n");
+            break;
+          case "-":
+            this.asm_.append(" = sub_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", tmp_, keyPair.publicKey);\n");
+            break;
+          case "^":
+            this.asm_.append(" = xor_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", tmp_, plaintext_modulus);\n");
+            ;
+            break;
+          case "&":
+            this.asm_.append(" = and_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", tmp_, plaintext_modulus);\n");
+            ;
+            break;
+          case "|":
+            this.asm_.append(" = or_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", tmp_, plaintext_modulus);\n");
+            ;
+            break;
+          case "==":
+            this.asm_.append(" = eq_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", tmp_, keyPair.publicKey);\n");
+            break;
+          case "!=":
+            this.asm_.append(" = neq_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", tmp_, keyPair.publicKey);\n");
+            break;
+          case "<":
+            this.asm_.append(" = lt_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", tmp_, word_sz, keyPair.publicKey);\n");
+            break;
+          case "<=":
+            this.asm_.append(" = leq_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", tmp_, keyPair.publicKey);\n");
+            break;
+          case "<<":
+            this.asm_.append(" = shift_left_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", ").append(rhs.getName());
+            this.asm_.append(", keyPair.publicKey);\n");
+            break;
+          case ">>":
+            this.asm_.append(" = shift_right_bin(").append(lhs.getName());
+            this.asm_.append(", ").append(rhs.getName()).append(");\n");
+            break;
+          case ">>>":
+            this.asm_.append(" = shift_right_logical_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", ").append(rhs.getName()).append(", keyPair.publicKey);\n");
+            break;
+          default:
+            throw new Exception("Bad operand types: " + lhs_type + " " + op + " " + rhs_type);
+        }
+      } else {
+        String tmp_vec = "tmp_vec_" + (++tmp_cnt_);
+        append_idx("vector<int64_t> " + tmp_vec + "(slots, " + rhs.getName() + ");\n");
+        append_idx("tmp = cc->MakePackedPlaintext(" + tmp_vec + ");\n");
+        switch (op) {
+          case "+":
+            append_idx(res_ + " = cc->");
+            this.asm_.append("EvalAdd(").append(lhs.getName()).append(", tmp);\n");
+            break;
+          case "*":
+            append_idx(res_ + " = cc->");
+            this.asm_.append("EvalMult(").append(lhs.getName()).append(", tmp);\n");
+            break;
+          case "-":
+            append_idx(res_ + " = cc->");
+            this.asm_.append("EvalSub(").append(lhs.getName()).append(", tmp);\n");
+            break;
+          case "^":
+            throw new Exception("XOR over encrypted integers is not possible");
+          case "&":
+            throw new Exception("Bitwise AND over encrypted integers is not possible");
+          case "|":
+            throw new Exception("Bitwise OR over encrypted integers is not possible");
+          case "==":
+            append_idx("tmp_ = cc->Encrypt(keyPair.publicKey, tmp);\n");
+            append_idx(res_);
+            this.asm_.append(" = eq(cc, ").append(lhs.getName());
+            this.asm_.append(", tmp_, plaintext_modulus);\n");
+            break;
+          case "!=":
+            append_idx("tmp_ = cc->Encrypt(keyPair.publicKey, tmp);\n");
+            append_idx(res_);
+            this.asm_.append(" = neq(cc, ").append(lhs.getName());
+            this.asm_.append(", tmp_, plaintext_modulus);\n");
+            break;
+          case "<":
+            append_idx("tmp_ = cc->Encrypt(keyPair.publicKey, tmp);\n");
+            append_idx(res_);
+            this.asm_.append(" = lt(cc, ").append(lhs.getName());
+            this.asm_.append(", tmp_, keyPair.publicKey, plaintext_modulus);\n");
+            break;
+          case "<=":
+            append_idx("tmp_ = cc->Encrypt(keyPair.publicKey, tmp);\n");
+            append_idx(res_);
+            this.asm_.append(" = leq(cc, ").append(lhs.getName());
+            this.asm_.append(", tmp_, keyPair.publicKey, plaintext_modulus);\n");
+            break;
+          case "<<":
+          case ">>":
+          case ">>>":
+            throw new Exception("Shift over encrypted integers is not possible");
+          default:
+            throw new Exception("Bad operand types: " + lhs_type + " " + op + " " + rhs_type);
+        }
       }
       return new Var_t("EncInt", res_);
     } else if (lhs_type.equals("EncInt") && rhs_type.equals("EncInt")) {
       String res_ = new_ctxt_tmp();
-      switch (op) {
-        case "+":
-          append_idx(res_ + " = cc->");
-          this.asm_.append("EvalAdd(").append(lhs.getName()).append(", ");
-          this.asm_.append(rhs.getName()).append(");\n");
-          break;
-        case "*":
-          append_idx(res_ + " = cc->");
-          this.asm_.append("EvalMultAndRelinearize(").append(lhs.getName());
-          this.asm_.append(", ").append(rhs.getName()).append(");\n");
-          break;
-        case "-":
-          append_idx(res_ + " = cc->");
-          this.asm_.append("EvalSub(").append(lhs.getName()).append(", ");
-          this.asm_.append(rhs.getName()).append(");\n");
-          break;
-        case "^":
-          throw new Exception("XOR over encrypted integers is not possible");
-        case "&":
-          throw new Exception("Bitwise AND over encrypted integers is not possible");
-        case "|":
-          throw new Exception("Bitwise OR over encrypted integers is not possible");
-        case "==":
-          append_idx(res_);
-          this.asm_.append(" = eq(cc, ").append(lhs.getName()).append(", ");
-          this.asm_.append(rhs.getName()).append(", plaintext_modulus);\n");
-          break;
-        case "!=":
-          append_idx(res_);
-          this.asm_.append(" = neq(cc, ").append(lhs.getName()).append(", ");
-          this.asm_.append(rhs.getName()).append(", plaintext_modulus);\n");
-          break;
-        case "<":
-          append_idx(res_);
-          this.asm_.append(" = lt(cc, ").append(lhs.getName()).append(", ");
-          this.asm_.append(rhs.getName());
-          this.asm_.append(", keyPair.publicKey, plaintext_modulus);\n");
-          break;
-        case "<=":
-          append_idx(res_);
-          this.asm_.append(" = leq(cc, ").append(lhs.getName()).append(", ");
-          this.asm_.append(rhs.getName());
-          this.asm_.append(", keyPair.publicKey, plaintext_modulus);\n");
-          break;
-        case "<<":
-        case ">>":
-        case ">>>":
-          throw new Exception("Shift over encrypted integers is not possible");
-        default:
-          throw new Exception("Bad operand types: " + lhs_type + " " + op + " " + rhs_type);
+      if (this.is_binary_) {
+        append_idx(res_);
+        switch (op) {
+          case "+":
+            this.asm_.append(" = add_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", ").append(rhs.getName());
+            this.asm_.append(", keyPair.publicKey);\n");
+            break;
+          case "*":
+            this.asm_.append(" = mult_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", ").append(rhs.getName());
+            this.asm_.append(", keyPair.publicKey);\n");
+            break;
+          case "-":
+            this.asm_.append(" = sub_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", ").append(rhs.getName());
+            this.asm_.append(", keyPair.publicKey);\n");
+            break;
+          case "^":
+            this.asm_.append(" = xor_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", ").append(rhs.getName());
+            this.asm_.append(", plaintext_modulus);\n");
+            break;
+          case "&":
+            this.asm_.append(" = and_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", ").append(rhs.getName());
+            this.asm_.append(", plaintext_modulus);\n");
+            break;
+          case "|":
+            this.asm_.append(" = or_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", ").append(rhs.getName());
+            this.asm_.append(", plaintext_modulus);\n");
+            break;
+          case "==":
+            this.asm_.append(" = eq_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", ").append(rhs.getName());
+            this.asm_.append(", keyPair.publicKey);\n");
+            break;
+          case "!=":
+            this.asm_.append(" = neq_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", ").append(rhs.getName());
+            this.asm_.append(", keyPair.publicKey);\n");
+            break;
+          case "<":
+            this.asm_.append(" = lt_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", ").append(rhs.getName());
+            this.asm_.append(", word_sz, keyPair.publicKey);\n");
+            break;
+          case "<=":
+            this.asm_.append(" = leq_bin(cc, ").append(lhs.getName());
+            this.asm_.append(", ").append(rhs.getName());
+            this.asm_.append(", keyPair.publicKey);\n");
+            break;
+          default:
+            throw new Exception("Bad operand types: " + lhs_type + " " + op + " " + rhs_type);
+        }
+      } else {
+        switch (op) {
+          case "+":
+            append_idx(res_ + " = cc->");
+            this.asm_.append("EvalAdd(").append(lhs.getName()).append(", ");
+            this.asm_.append(rhs.getName()).append(");\n");
+            break;
+          case "*":
+            append_idx(res_ + " = cc->");
+            this.asm_.append("EvalMultAndRelinearize(").append(lhs.getName());
+            this.asm_.append(", ").append(rhs.getName()).append(");\n");
+            break;
+          case "-":
+            append_idx(res_ + " = cc->");
+            this.asm_.append("EvalSub(").append(lhs.getName()).append(", ");
+            this.asm_.append(rhs.getName()).append(");\n");
+            break;
+          case "^":
+            throw new Exception("XOR over encrypted integers is not possible");
+          case "&":
+            throw new Exception("Bitwise AND over encrypted integers is not possible");
+          case "|":
+            throw new Exception("Bitwise OR over encrypted integers is not possible");
+          case "==":
+            append_idx(res_);
+            this.asm_.append(" = eq(cc, ").append(lhs.getName()).append(", ");
+            this.asm_.append(rhs.getName()).append(", plaintext_modulus);\n");
+            break;
+          case "!=":
+            append_idx(res_);
+            this.asm_.append(" = neq(cc, ").append(lhs.getName()).append(", ");
+            this.asm_.append(rhs.getName()).append(", plaintext_modulus);\n");
+            break;
+          case "<":
+            append_idx(res_);
+            this.asm_.append(" = lt(cc, ").append(lhs.getName()).append(", ");
+            this.asm_.append(rhs.getName());
+            this.asm_.append(", keyPair.publicKey, plaintext_modulus);\n");
+            break;
+          case "<=":
+            append_idx(res_);
+            this.asm_.append(" = leq(cc, ").append(lhs.getName()).append(", ");
+            this.asm_.append(rhs.getName());
+            this.asm_.append(", keyPair.publicKey, plaintext_modulus);\n");
+            break;
+          case "<<":
+          case ">>":
+          case ">>>":
+            throw new Exception("Shift over encrypted integers is not possible");
+          default:
+            throw new Exception("Bad operand types: " + lhs_type + " " + op + " " + rhs_type);
+        }
       }
-
       return new Var_t("EncInt", res_);
     }
     throw new Exception("Bad operand types: " + lhs_type + " " + op + " " + rhs_type);
@@ -799,13 +1222,15 @@ public class T2_2_OpenFHE extends T2_Compiler {
       return new Var_t("int", "~" + exp.getName());
     } else if (exp_type.equals("EncInt")) {
       String res_ = new_ctxt_tmp();
-      append_idx(res_ + " = cc->EvalNegate(" + exp.getName() + ");\n");
-      // TODO: ??
-      append_idx("fill(" + this.vec + ".begin(), " + this.vec);
-      this.asm_.append(".end(), 1);\n");
-      append_idx("tmp = cc->MakePackedPlaintext(" + this.vec + ");\n");
-      append_idx(res_ + " = cc->EvalSub(" + res_ + ", tmp);\n");
-
+      if (this.is_binary_) {
+        append_idx(res_ + " = not_bin(cc, " + exp.getName() + ");\n");
+      } else {
+        append_idx(res_ + " = cc->EvalNegate(" + exp.getName() + ");\n");
+        append_idx("fill(" + this.vec + ".begin(), " + this.vec);
+        this.asm_.append(".end(), 1);\n");
+        append_idx("tmp = cc->MakePackedPlaintext(" + this.vec + ");\n");
+        append_idx(res_ + " = cc->EvalSub(" + res_ + ", tmp);\n");
+      }
       return new Var_t("EncInt", res_);
     }
     throw new Exception("Wrong type for ~: " + exp_type);
@@ -863,7 +1288,11 @@ public class T2_2_OpenFHE extends T2_Compiler {
           this.asm_.append(";\n");
           encrypt(e2_enc, new String[] { e2.getName() });
           this.asm_.append(";\n");
-          append_idx(res_ + " = mux(cc, " + cond.getName() + ", ");
+          if (this.is_binary_) {
+            append_idx(res_ + " = mux_bin(cc, " + cond.getName() + ", ");
+          } else {
+            append_idx(res_ + " = mux(cc, " + cond.getName() + ", ");
+          }
           this.asm_.append(e1_enc).append(", ").append(e2_enc);
           this.asm_.append(");\n");
           return new Var_t("EncInt", res_);
@@ -882,7 +1311,11 @@ public class T2_2_OpenFHE extends T2_Compiler {
         String e2_enc = new_ctxt_tmp();
         encrypt(e2_enc, new String[] { e2.getName() });
         this.asm_.append(";\n");
-        append_idx(res_ + " = mux(cc, " + cond.getName() + ", ");
+        if (this.is_binary_) {
+          append_idx(res_ + " = mux_bin(cc, " + cond.getName() + ", ");
+        } else {
+          append_idx(res_ + " = mux(cc, " + cond.getName() + ", ");
+        }
         this.asm_.append(e1.getName()).append(", ").append(e2_enc).append(");\n");
         return new Var_t(e1_t, res_);
       } else if ((e2_t.equals("EncInt") || e2_t.equals("EncDouble")) &&
@@ -890,7 +1323,11 @@ public class T2_2_OpenFHE extends T2_Compiler {
         String e1_enc = new_ctxt_tmp();
         encrypt(e1_enc, new String[] { e1.getName() });
         this.asm_.append(";\n");
-        append_idx(res_ + " = mux(cc, " + cond.getName() + ", ");
+        if (this.is_binary_) {
+          append_idx(res_ + " = mux_bin(cc, " + cond.getName() + ", ");
+        } else {
+          append_idx(res_ + " = mux(cc, " + cond.getName() + ", ");
+        }
         this.asm_.append(e1_enc).append(", ").append(e2.getName()).append(");\n");
         return new Var_t(e2_t, res_);
       }
@@ -900,4 +1337,5 @@ public class T2_2_OpenFHE extends T2_Compiler {
         e1.getName() + " type: " + e1_t +
         e2.getName() + " type: " + e2_t);
   }
+
 }
