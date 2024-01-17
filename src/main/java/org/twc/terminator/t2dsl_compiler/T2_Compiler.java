@@ -20,13 +20,15 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
   protected StringBuilder asm_;
   protected int indent_, tmp_cnt_, word_sz_;
   protected int ring_dim_;
+  protected int mul_depth_;
+  protected int plain_mod_;
   protected boolean semicolon_;
   protected String config_file_path_;
   protected String tmp_i;
   protected boolean is_binary_, timer_used_;
   protected String tstart_, tstop_, tdur_;
 
-  public T2_Compiler(SymbolTable st, String config_file_path, int word_sz, int ring_dim) {
+  public T2_Compiler(SymbolTable st, String config_file_path, int word_sz) {
     this.indent_ = 0;
     this.tmp_cnt_ = 0;
     this.st_ = st;
@@ -44,7 +46,14 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
     this.tstop_ = "stop_timer";
     this.tdur_ = "duration";
     this.timer_used_ = false;
+    this.ring_dim_ = 0;
+  }
+
+  public T2_Compiler setEncParams(int ring_dim, int mul_depth, int plain_mod) {
     this.ring_dim_ = ring_dim;
+    this.mul_depth_ = mul_depth;
+    this.plain_mod_ = plain_mod;
+    return this;
   }
 
   public Main.ENC_TYPE getScheme() {

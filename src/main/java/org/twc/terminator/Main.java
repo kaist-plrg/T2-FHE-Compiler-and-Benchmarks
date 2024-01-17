@@ -163,30 +163,30 @@ public class Main {
           throw new RuntimeException("Provide a backend (i.e., -SEAL, " +
               "-TFHE, -PALISADE, -HELIB, -LATTIGO)");
         case CLEAR:
-          dsl_compiler = new T2_2_CLEAR(symbol_table, config, word_sz_, ring_dim_);
+          //dsl_compiler = new T2_2_CLEAR(symbol_table, config, word_sz_, ring_dim_);
           break;
         case SEAL:
           if (scheme_ == ENC_TYPE.ENC_INT) {
-            dsl_compiler = new T2_2_SEAL(symbol_table, config, word_sz_, ring_dim_);
+            dsl_compiler = new T2_2_SEAL(symbol_table, config, word_sz_);
           } else if (scheme_ == ENC_TYPE.ENC_DOUBLE) {
-            dsl_compiler = new T2_2_SEAL_CKKS(symbol_table, config, ring_dim_);
+            dsl_compiler = new T2_2_SEAL_CKKS(symbol_table, config);
           }
           break;
         case TFHE:
           // dsl_compiler = new T2_2_TFHE(symbol_table, config, word_sz_, print_bin_);
           break;
         case PALISADE:
-          if (scheme_ == ENC_TYPE.ENC_INT) {
-            dsl_compiler = new T2_2_PALISADE(symbol_table, config, word_sz_, ring_dim_);
-          } else if (scheme_ == ENC_TYPE.ENC_DOUBLE) {
-            dsl_compiler = new T2_2_PALISADE_CKKS(symbol_table, config, ring_dim_);
-          }
+          //if (scheme_ == ENC_TYPE.ENC_INT) {
+          //  dsl_compiler = new T2_2_PALISADE(symbol_table, config, word_sz_, ring_dim_);
+          //} else if (scheme_ == ENC_TYPE.ENC_DOUBLE) {
+          //  dsl_compiler = new T2_2_PALISADE_CKKS(symbol_table, config, ring_dim_);
+          //}
           break;
         case OPENFHE:
           if (scheme_ == ENC_TYPE.ENC_INT) {
-            dsl_compiler = new T2_2_OpenFHE(symbol_table, config, word_sz_, ring_dim_);
+            dsl_compiler = new T2_2_OpenFHE(symbol_table, config, word_sz_);
           } else if (scheme_ == ENC_TYPE.ENC_DOUBLE) {
-            dsl_compiler = new T2_2_OpenFHE_CKKS(symbol_table, config, ring_dim_);
+            dsl_compiler = new T2_2_OpenFHE_CKKS(symbol_table, config);
           }
           break;
         case HELIB:

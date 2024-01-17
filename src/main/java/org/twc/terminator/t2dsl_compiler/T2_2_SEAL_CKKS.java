@@ -9,18 +9,31 @@ import java.util.List;
 
 public class T2_2_SEAL_CKKS extends T2_2_SEAL {
 
-  public T2_2_SEAL_CKKS(SymbolTable st, String config_file_path, int ring_dim) {
-    super(st, config_file_path, 0, ring_dim);
+  public T2_2_SEAL_CKKS(SymbolTable st, String config_file_path) {
+    super(st, config_file_path, 0);
     this.st_.backend_types.put("EncDouble", "Ciphertext");
     this.st_.backend_types.put("EncDouble[]", "vector<Ciphertext>");
   }
 
   protected void append_keygen() {
     append_idx("EncryptionParameters parms(scheme_type::ckks);\n");
-    append_idx("size_t poly_modulus_degree = " + this.ring_dim_ + ";\n");
+    if (ring_dim_ == 0) {
+      append_idx("size_t poly_modulus_degree = 16384;\n");
+    } else {
+      append_idx("size_t poly_modulus_degree = " + ring_dim_ + ";\n");
+    }
     append_idx("parms.set_poly_modulus_degree(poly_modulus_degree);\n");
-    append_idx("parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree,"
-        + " { 60, 40, 40, 40, 40, 40, 60 }));\n");
+    if (mul_depth_ == 0) {
+      append_idx("parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree,"
+          + " { 60, 40, 40, 40, 40, 40, 60 }));\n");
+    } else {
+      append_idx("parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, ");
+      this.asm_.append("vector<int>{ 60");
+      for (int i = 1; i < mul_depth_ - 1; i++) {
+        this.asm_.append(", 40");
+      }
+      this.asm_.append(", 60 }));\n");
+    }
     append_idx("double scale = pow(2.0, 40);\n");
     append_idx("SEALContext context(parms);\n");
     append_idx("KeyGenerator keygen(context);\n");

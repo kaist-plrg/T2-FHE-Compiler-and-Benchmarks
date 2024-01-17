@@ -10,8 +10,9 @@ import java.util.List;
 
 public class T2_2_SEAL extends T2_Compiler {
 
-  public T2_2_SEAL(SymbolTable st, String config_file_path, int word_sz, int ring_dim) {
-    super(st, config_file_path, word_sz, ring_dim);
+  public T2_2_SEAL(SymbolTable st, String config_file_path, int word_sz) {
+    super(st, config_file_path, word_sz);
+
     if (this.is_binary_) {
       this.st_.backend_types.put("EncInt", "vector<Ciphertext>");
       this.st_.backend_types.put("EncInt[]", "vector<vector<Ciphertext>>");
@@ -22,12 +23,29 @@ public class T2_2_SEAL extends T2_Compiler {
   }
 
   protected void append_keygen() {
-    append_idx("size_t poly_modulus_degree = " + this.ring_dim_ + ";\n");
-    append_idx("auto p_mod = PlainModulus::Batching(poly_modulus_degree, 20);\n");
-    append_idx("size_t plaintext_modulus = (size_t) p_mod.value();\n");
     append_idx("EncryptionParameters parms(scheme_type::bfv);\n");
+    if (ring_dim_ == 0) {
+      append_idx("size_t poly_modulus_degree = 16384;\n");
+    } else {
+      append_idx("size_t poly_modulus_degree = " + ring_dim_ + ";\n");
+    }
+    append_idx("auto p_mod = PlainModulus::Batching(poly_modulus_degree, 20);\n");
+    if (plain_mod_ == 0) {
+      append_idx("size_t plaintext_modulus = (size_t) p_mod.value();\n");
+    } else {
+      append_idx("size_t plaintext_modulus = (size_t) " + plain_mod_ + ";\n");
+    }
     append_idx("parms.set_poly_modulus_degree(poly_modulus_degree);\n");
-    append_idx("parms.set_coeff_modulus(CoeffModulus::BFVDefault(poly_modulus_degree));\n");
+    if (mul_depth_ == 0) {
+      append_idx("parms.set_coeff_modulus(CoeffModulus::BFVDefault(poly_modulus_degree));\n");
+    } else {
+      append_idx("parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, ");
+      this.asm_.append("vector<int>{ 60");
+      for (int i = 1; i < mul_depth_ - 1; i++) {
+        this.asm_.append(", 40");
+      }
+      this.asm_.append(", 60 }));\n");
+    }
     append_idx("parms.set_plain_modulus(p_mod);\n");
     append_idx("SEALContext context(parms);\n");
     append_idx("KeyGenerator keygen(context);\n");

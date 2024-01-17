@@ -9,16 +9,24 @@ import java.util.List;
 
 public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
 
-  public T2_2_OpenFHE_CKKS(SymbolTable st, String config_file_path, int ring_dim) {
-    super(st, config_file_path, 0, ring_dim);
+  public T2_2_OpenFHE_CKKS(SymbolTable st, String config_file_path) {
+    super(st, config_file_path, 0);
     this.st_.backend_types.put("EncDouble", "Ciphertext<DCRTPoly>");
     this.st_.backend_types.put("EncDouble[]", "vector<Ciphertext<DCRTPoly>>");
   }
 
   protected void append_keygen() {
     append_idx("CCParams<CryptoContextCKKSRNS> parameters;\n");
-    append_idx("parameters.SetPlaintextModulus(65537);\n");
-    append_idx("parameters.SetMultiplicativeDepth(5);\n");
+    if (ring_dim_ == 0) {
+      append_idx("parameters.SetRingDim(32768);\n");
+    } else {
+      append_idx("parameters.SetRingDim(" + this.ring_dim_ + ");\n");
+    }
+    if (mul_depth_ == 0) {
+      append_idx("parameters.SetMultiplicativeDepth(5);\n");
+    } else {
+      append_idx("parameters.SetMultiplicativeDepth(" + mul_depth_ +");\n");
+    }
     append_idx("CryptoContext<DCRTPoly> cc = GenCryptoContext(parameters);\n");
     append_idx("cc->Enable(PKE);\n");
     append_idx("cc->Enable(KEYSWITCH);\n");

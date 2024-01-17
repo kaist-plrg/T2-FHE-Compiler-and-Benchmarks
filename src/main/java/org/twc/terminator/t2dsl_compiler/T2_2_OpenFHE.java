@@ -13,17 +13,29 @@ public class T2_2_OpenFHE extends T2_Compiler {
   protected String vec = "tmp_vec_";
   protected String bin_vec = "tmp_bin_vec_";
 
-  public T2_2_OpenFHE(SymbolTable st, String config_file_path,
-      int word_sz, int ring_dim) {
-    super(st, config_file_path, word_sz, ring_dim);
+  public T2_2_OpenFHE(SymbolTable st, String config_file_path, int word_sz) {
+    super(st, config_file_path, word_sz);
     this.st_.backend_types.put("EncInt", "Ciphertext<DCRTPoly>");
     this.st_.backend_types.put("EncInt[]", "vector<Ciphertext<DCRTPoly>>");
   }
 
   protected void append_keygen() {
     append_idx("CCParams<CryptoContextBFVRNS> parameters;\n");
-    append_idx("parameters.SetPlaintextModulus(65537);\n");
-    append_idx("parameters.SetMultiplicativeDepth(2);\n");
+    if (ring_dim_ == 0) {
+      append_idx("parameters.SetRingDim(32768);\n");
+    } else {
+      append_idx("parameters.SetRingDim(" + ring_dim_ + ");\n");
+    }
+    if (plain_mod_ == 0) {
+      append_idx("parameters.SetPlaintextModulus(65537);\n");
+    } else {
+      append_idx("parameters.SetPlaintextModulus(" + plain_mod_ + ");\n");
+    }
+    if (mul_depth_ == 0) {
+      append_idx("parameters.SetMultiplicativeDepth(2);\n");
+    } else {
+      append_idx("parameters.SetMultiplicativeDepth(" + mul_depth_ +");\n");
+    }
     append_idx("CryptoContext<DCRTPoly> cc = GenCryptoContext(parameters);\n");
     append_idx("cc->Enable(PKE);\n");
     append_idx("cc->Enable(KEYSWITCH);\n");
