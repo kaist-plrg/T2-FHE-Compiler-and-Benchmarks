@@ -29,11 +29,13 @@ public class T2_2_SEAL extends T2_Compiler {
     } else {
       append_idx("size_t poly_modulus_degree = " + ring_dim_ + ";\n");
     }
-    append_idx("auto p_mod = PlainModulus::Batching(poly_modulus_degree, 20);\n");
     if (plain_mod_ == 0) {
+      append_idx("auto p_mod = PlainModulus::Batching(poly_modulus_degree, 20);\n");
       append_idx("size_t plaintext_modulus = (size_t) p_mod.value();\n");
+      append_idx("parms.set_plain_modulus(p_mod);\n");
     } else {
       append_idx("size_t plaintext_modulus = (size_t) " + plain_mod_ + ";\n");
+      append_idx("parms.set_plain_modulus(plaintext_modulus);\n");
     }
     append_idx("parms.set_poly_modulus_degree(poly_modulus_degree);\n");
     if (mul_depth_ == 0) {
@@ -46,7 +48,6 @@ public class T2_2_SEAL extends T2_Compiler {
       }
       this.asm_.append(", 60 }));\n");
     }
-    append_idx("parms.set_plain_modulus(p_mod);\n");
     append_idx("SEALContext context(parms);\n");
     append_idx("KeyGenerator keygen(context);\n");
     append_idx("SecretKey secret_key = keygen.secret_key();\n");
