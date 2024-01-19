@@ -18,7 +18,7 @@ public class T2_2_SEAL_CKKS extends T2_2_SEAL {
   protected void append_keygen() {
     append_idx("EncryptionParameters parms(scheme_type::ckks);\n");
     if (ring_dim_ == 0) {
-      append_idx("size_t poly_modulus_degree = 16384;\n");
+      append_idx("size_t poly_modulus_degree = 32768;\n");
     } else {
       append_idx("size_t poly_modulus_degree = " + ring_dim_ + ";\n");
     }
