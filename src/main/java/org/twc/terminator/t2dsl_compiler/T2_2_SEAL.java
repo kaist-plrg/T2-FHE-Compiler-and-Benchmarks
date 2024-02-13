@@ -30,7 +30,7 @@ public class T2_2_SEAL extends T2_Compiler {
       append_idx("size_t poly_modulus_degree = " + ring_dim_ + ";\n");
     }
     if (plain_mod_ == 0) {
-      append_idx("auto p_mod = PlainModulus::Batching(poly_modulus_degree, 20);\n");
+      append_idx("auto p_mod = PlainModulus::Batching(poly_modulus_degree, 17);\n");
       append_idx("size_t plaintext_modulus = (size_t) p_mod.value();\n");
       append_idx("parms.set_plain_modulus(p_mod);\n");
     } else {
