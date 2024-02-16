@@ -460,7 +460,7 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
         append_idx("tmp->SetLength(1);\n");
         append_idx(this.vec + " = tmp->GetCKKSPackedValue();\n");
         append_idx("cout << fixed << ");
-        this.asm_.append("setprecision(1) << real(");
+        this.asm_.append("setprecision(5) << real(");
         this.asm_.append(this.vec).append("[0]) << endl");
         break;
       default:
@@ -498,7 +498,7 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
     this.asm_.append(this.tmp_i).append(" = 0; ").append(this.tmp_i).append(" < ");
     this.asm_.append(size.getName()).append("; ++").append(this.tmp_i);
     this.asm_.append(") {\n");
-    append_idx("  cout << fixed << setprecision(1) << real(" + this.vec + "[");
+    append_idx("  cout << fixed << setprecision(5) << real(" + this.vec + "[");
     this.asm_.append(this.tmp_i).append("]) << \" \";\n");
     append_idx("}\n");
     append_idx("cout << endl");
