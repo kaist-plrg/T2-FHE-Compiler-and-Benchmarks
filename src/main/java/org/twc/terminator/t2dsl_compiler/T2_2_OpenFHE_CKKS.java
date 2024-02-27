@@ -39,13 +39,14 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
     append_idx("vector<complex<double>> " + this.vec + "(slots);\n");
     append_idx("Plaintext tmp;\n");
     append_idx("int rots_num = 20;\n");
-    append_idx("vector<int> rots(rots_num);\n");
+    append_idx("vector<int> rots(rots_num+1);\n");
 
     append_idx("for (int " + this.tmp_i + " = 2; " + this.tmp_i + "< rots_num+2; ");
     this.asm_.append(this.tmp_i).append(" += 2) {\n");
     append_idx("   rots[" + this.tmp_i + " - 2] = " + this.tmp_i + " / 2;\n");
     append_idx("   rots[" + this.tmp_i + " - 1] = -(" + this.tmp_i + " / 2);\n");
     append_idx("}\n");
+    append_idx("rots[rots_num] = 0;\n");
     append_idx("cc->EvalRotateKeyGen(keyPair.secretKey, rots);\n");
     append_idx("Ciphertext<DCRTPoly> tmp_;\n\n");
   }
