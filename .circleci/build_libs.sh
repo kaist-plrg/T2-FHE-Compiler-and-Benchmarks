@@ -30,33 +30,30 @@ set -exo pipefail
 #    echo "Found in cache"
 #fi
 
-echo "Build OpenFHE v1.1.2"
-if [ ! -d "OpenFHE/build" ] ; then
+openfhe_versions=("v1.0.1" "v1.0.2" "v1.0.3" "v1.0.4" "v1.1.2")
+for version in "${openfhe_versions[@]}"; do
+    echo "Build OpenFHE $version"
     cd ./OpenFHE
-    git reset --hard b2869ae
+    rm -rf build
+    git reset --hard $version
     mkdir -p build && cd build
-    cmake -DBUILD_UNITTESTS=OFF -DBUILD_EXAMPLES=OFF -DBUILD_BENCHMARKS=OFF ..
+    cmake -DBUILD_UNITTESTS=OFF -DBUILD_EXAMPLES=OFF -DBUILD_BENCHMARKS=OFF -DCMAKE_INSTALL_PREFIX=/usr/local/OpenFHE-$version ..
     make -j 10
     sudo make install
-    sudo ln -s /usr/local/lib/libOpenFHEcore.so.1 /usr/lib/libOpenFHEcore.so.1
-    sudo ln -s /usr/local/lib/libOPENFHEbinfhe.so.1 /usr/lib/libOPENFHEbinfhe.so.1
-    sudo ln -s /usr/local/lib/libOPENFHEpke.so.1 /usr/lib/libOPENFHEpke.so.1
     cd ../..
-else
-    echo "Found in cache"
-fi
+done
 
-echo "Build SEAL v4.1.1"
-if [ ! -d "SEAL/build" ] ; then
+seal_versions=("v3.7.2" "v3.7.3" "v4.0.0" "v4.1.0" "v4.1.1")
+for version in "${seal_versions[@]}"; do
+    echo "Build SEAL $version"
     cd ./SEAL
-    git reset --hard 206648d0e4634e5c61dcf9370676630268290b59
-    cmake -S . -B build -DSEAL_BUILD_BENCH=OFF -DSEAL_BUILD_EXAMPLES=OFF -DSEAL_BUILD_TESTS=OFF
+    rm -rf build
+    git reset --hard $version
+    cmake -S . -B build -DSEAL_BUILD_BENCH=OFF -DSEAL_BUILD_EXAMPLES=OFF -DSEAL_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=/usr/local/SEAL-$version
     cmake --build build
     sudo cmake --install build
     cd ..
-else
-    echo "Found in cache"
-fi
+done
 
 #echo "Build TFHE v1.0.1"
 #if [ ! -d "tfhe/build" ] ; then
