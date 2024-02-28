@@ -27,6 +27,7 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
     } else {
       append_idx("parameters.SetMultiplicativeDepth(" + mul_depth_ +");\n");
     }
+    append_idx("parameters.SetScalingModSize(40);\n");
     append_idx("CryptoContext<DCRTPoly> cc = GenCryptoContext(parameters);\n");
     append_idx("cc->Enable(PKE);\n");
     append_idx("cc->Enable(KEYSWITCH);\n");

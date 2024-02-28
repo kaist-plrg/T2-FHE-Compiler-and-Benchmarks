@@ -43,7 +43,7 @@ public class T2_2_SEAL extends T2_Compiler {
     } else {
       append_idx("parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, ");
       this.asm_.append("vector<int>{ 60");
-      for (int i = 1; i < mul_depth_; i++) {
+      for (int i = 0; i < mul_depth_; i++) {
         this.asm_.append(", 40");
       }
       this.asm_.append(", 60 }));\n");
