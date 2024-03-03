@@ -29,17 +29,12 @@ public class T2_2_SEAL_CKKS extends T2_2_SEAL {
       append_idx("size_t poly_modulus_degree = " + ring_dim_ + ";\n");
     }
     append_idx("parms.set_poly_modulus_degree(poly_modulus_degree);\n");
-    if (mul_depth_ == 0) {
-      append_idx("parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree,"
-          + " { 60, 40, 40, 40, 40, 40, 60 }));\n");
-    } else {
-      append_idx("parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, ");
-      this.asm_.append("vector<int>{ 60");
-      for (int i = 0; i < mul_depth_ ; i++) {
-        this.asm_.append(", 40");
-      }
-      this.asm_.append(", 60 }));\n");
+    append_idx("parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, ");
+    this.asm_.append("vector<int>{ 60");
+    for (int i = 0; i < mul_depth_ ; i++) {
+      this.asm_.append(", 40");
     }
+    this.asm_.append(", 60 }));\n");
     append_idx("double scale = pow(2.0, 40);\n");
     append_idx("SEALContext context(parms);\n");
     append_idx("KeyGenerator keygen(context);\n");

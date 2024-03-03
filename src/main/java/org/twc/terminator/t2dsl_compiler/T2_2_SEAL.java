@@ -51,16 +51,12 @@ public class T2_2_SEAL extends T2_Compiler {
       append_idx("parms.set_plain_modulus(plaintext_modulus);\n");
     }
     append_idx("parms.set_poly_modulus_degree(poly_modulus_degree);\n");
-    if (mul_depth_ == 0) {
-      append_idx("parms.set_coeff_modulus(CoeffModulus::BFVDefault(poly_modulus_degree));\n");
-    } else {
-      append_idx("parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, ");
-      this.asm_.append("vector<int>{ 60");
-      for (int i = 0; i < mul_depth_; i++) {
-        this.asm_.append(", 40");
-      }
-      this.asm_.append(", 60 }));\n");
+    append_idx("parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, ");
+    this.asm_.append("vector<int>{ 60");
+    for (int i = 0; i < mul_depth_; i++) {
+      this.asm_.append(", 40");
     }
+    this.asm_.append(", 60 }));\n");
     append_idx("SEALContext context(parms);\n");
     append_idx("KeyGenerator keygen(context);\n");
     append_idx("SecretKey secret_key = keygen.secret_key();\n");

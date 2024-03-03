@@ -50,11 +50,7 @@ public class T2_2_OpenFHE extends T2_Compiler {
       append_idx("size_t plaintext_modulus = " + plain_mod_ + ";\n");
     }
     append_idx("parameters.SetPlaintextModulus(plaintext_modulus);\n");
-    if (mul_depth_ == 0) {
-      append_idx("parameters.SetMultiplicativeDepth(2);\n");
-    } else {
-      append_idx("parameters.SetMultiplicativeDepth(" + mul_depth_ +");\n");
-    }
+    append_idx("parameters.SetMultiplicativeDepth(" + mul_depth_ +");\n");
     append_idx("CryptoContext<DCRTPoly> cc = GenCryptoContext(parameters);\n");
     append_idx("cc->Enable(PKE);\n");
     append_idx("cc->Enable(KEYSWITCH);\n");
