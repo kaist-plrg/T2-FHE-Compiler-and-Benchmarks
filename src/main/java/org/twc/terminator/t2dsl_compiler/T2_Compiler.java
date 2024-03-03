@@ -24,11 +24,13 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
   protected int plain_mod_;
   protected boolean semicolon_;
   protected String config_file_path_;
+  // We add a stream of strings to read the config file
+  protected Stream<String> configs;
   protected String tmp_i;
   protected boolean is_binary_, timer_used_;
   protected String tstart_, tstop_, tdur_;
 
-  public T2_Compiler(SymbolTable st, String config_file_path, int word_sz) {
+  public T2_Compiler(SymbolTable st, String config_file_path, int word_sz, Stream<String> configs) {
     this.indent_ = 0;
     this.tmp_cnt_ = 0;
     this.st_ = st;
@@ -39,6 +41,7 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
     this.semicolon_ = false;
     this.asm_ = new StringBuilder();
     this.config_file_path_ = config_file_path;
+    this.configs = configs;
     this.tmp_i = "tmp_i";
     this.word_sz_ = word_sz;
     this.is_binary_ = (word_sz > 0);
@@ -47,6 +50,9 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
     this.tdur_ = "duration";
     this.timer_used_ = false;
     this.ring_dim_ = 0;
+  }
+  public T2_Compiler(SymbolTable st, String configFilePath, int wordSize) {
+    this(st, configFilePath, wordSize, null);
   }
 
   public T2_Compiler setEncParams(int ring_dim, int mul_depth, int plain_mod) {
@@ -122,6 +128,19 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
       return true;
     } catch (InvalidPathException | IOException e) {
       return false;
+    }
+  }
+
+  protected boolean read_keygen_from_stream() {
+    if (configs == null) {
+      return false;
+    } else {
+      configs.forEach((line) -> {
+        this.asm_.append("  ").append(line).append("\n");
+      });
+      this.asm_.append("\n");
+      return true;
+
     }
   }
 

@@ -7,7 +7,15 @@ import org.twc.terminator.t2dsl_compiler.T2DSLsyntaxtree.*;
 import java.util.ArrayList;
 import java.util.List;
 
+import java.util.stream.Stream;
+
 public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
+
+  public T2_2_OpenFHE_CKKS(SymbolTable st, String config_file_path,  Stream<String> configs) {
+    super(st, config_file_path, 0, configs);
+    this.st_.backend_types.put("EncDouble", "Ciphertext<DCRTPoly>");
+    this.st_.backend_types.put("EncDouble[]", "vector<Ciphertext<DCRTPoly>>");
+  }
 
   public T2_2_OpenFHE_CKKS(SymbolTable st, String config_file_path) {
     super(st, config_file_path, 0);

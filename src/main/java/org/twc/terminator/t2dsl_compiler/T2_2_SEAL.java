@@ -8,8 +8,21 @@ import org.twc.terminator.t2dsl_compiler.T2DSLsyntaxtree.*;
 import java.util.ArrayList;
 import java.util.List;
 
+import java.util.stream.Stream;
+
 public class T2_2_SEAL extends T2_Compiler {
 
+  public T2_2_SEAL(SymbolTable st, String config_file_path, int word_sz, Stream<String> configs) {
+    super(st, config_file_path, word_sz, configs);
+
+    if (this.is_binary_) {
+      this.st_.backend_types.put("EncInt", "vector<Ciphertext>");
+      this.st_.backend_types.put("EncInt[]", "vector<vector<Ciphertext>>");
+    } else {
+      this.st_.backend_types.put("EncInt", "Ciphertext");
+      this.st_.backend_types.put("EncInt[]", "vector<Ciphertext>");
+    }
+  }
   public T2_2_SEAL(SymbolTable st, String config_file_path, int word_sz) {
     super(st, config_file_path, word_sz);
 
@@ -135,7 +148,7 @@ public class T2_2_SEAL extends T2_Compiler {
     append_idx("int main(void) {\n");
     this.indent_ = 2;
     append_idx("size_t word_sz = " + this.word_sz_ + ";\n");
-    if (!read_keygen_from_file()) {
+    if (!read_keygen_from_file() && !read_keygen_from_stream()) {
       append_keygen();
     }
     n.f6.accept(this);
