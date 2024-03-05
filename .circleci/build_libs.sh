@@ -42,9 +42,6 @@ for version in "${openfhe_versions[@]}"; do
     sudo make install
     cd ../..
 done
-sudo ln -s /usr/local/OpenFHE-1.0.3/lib/libOpenFHEcore.so.1 /usr/lib/libOpenFHEcore.so.1
-sudo ln -s /usr/local/OpenFHE-1.0.3/lib/libOPENFHEbinfhe.so.1 /usr/lib/libOPENFHEbinfhe.so.1
-sudo ln -s /usr/local/OpenFHE-1.0.3/lib/libOPENFHEpke.so.1 /usr/lib/libOPENFHEpke.so.1
 
 seal_versions=("v3.7.2" "v3.7.3" "v4.0.0" "v4.1.0" "v4.1.1")
 for version in "${seal_versions[@]}"; do
