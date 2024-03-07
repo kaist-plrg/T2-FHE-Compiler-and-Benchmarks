@@ -2,6 +2,14 @@
 
 set -exo pipefail
 
+read -p "Do you want to build with Debug type? (y/n): " build_debug
+
+if [ "$build_debug" = "y" ]; then
+    cmake_build_type="-DCMAKE_BUILD_TYPE=Debug"
+else
+    cmake_build_type=""
+fi
+
 #echo "Build HElib v2.2.2"
 #if [ ! -d "HElib/build" ] ; then
 #    cd ./HElib
@@ -32,12 +40,13 @@ set -exo pipefail
 
 openfhe_versions=("v1.0.1" "v1.0.2" "v1.0.3" "v1.0.4" "v1.1.2")
 for version in "${openfhe_versions[@]}"; do
+    git clone https://github.com/openfheorg/openfhe-development.git OpenFHE-$version
     echo "Build OpenFHE $version"
-    cd ./OpenFHE
+    cd ./OpenFHE-$version
     rm -rf build
     git reset --hard $version
     mkdir -p build && cd build
-    cmake -DBUILD_UNITTESTS=OFF -DBUILD_EXAMPLES=OFF -DBUILD_BENCHMARKS=OFF -DCMAKE_INSTALL_PREFIX=/usr/local/OpenFHE-$version ..
+    cmake $cmake_build_type -DBUILD_UNITTESTS=OFF -DBUILD_EXAMPLES=OFF -DBUILD_BENCHMARKS=OFF -DCMAKE_INSTALL_PREFIX=/usr/local/OpenFHE-$version ..
     make -j 10
     sudo make install
     cd ../..
@@ -46,10 +55,11 @@ done
 seal_versions=("v3.7.2" "v3.7.3" "v4.0.0" "v4.1.0" "v4.1.1")
 for version in "${seal_versions[@]}"; do
     echo "Build SEAL $version"
-    cd ./SEAL
-    rm -rf build
+    git clone https://github.com/microsoft/SEAL.git SEAL-$version
+    cd ./SEAL-$version
+    m -rf build
     git reset --hard $version
-    cmake -S . -B build -DSEAL_BUILD_BENCH=OFF -DSEAL_BUILD_EXAMPLES=OFF -DSEAL_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=/usr/local/SEAL-$version
+    cmake -S . -B build $cmake_build_type -DSEAL_BUILD_BENCH=OFF -DSEAL_BUILD_EXAMPLES=OFF -DSEAL_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=/usr/local/SEAL-$version
     cmake --build build
     sudo cmake --install build
     cd ..
