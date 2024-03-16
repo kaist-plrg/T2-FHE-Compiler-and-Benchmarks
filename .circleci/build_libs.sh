@@ -38,7 +38,7 @@ fi
 #    echo "Found in cache"
 #fi
 
-openfhe_versions=("v1.0.1" "v1.0.2" "v1.0.3" "v1.0.4" "v1.1.2")
+openfhe_versions=("v1.0.1" "v1.0.2" "v1.0.3" "v1.0.4" "v1.1.2" "v1.1.4")
 for version in "${openfhe_versions[@]}"; do
     git clone https://github.com/openfheorg/openfhe-development.git OpenFHE-$version
     echo "Build OpenFHE $version"
@@ -57,7 +57,7 @@ for version in "${seal_versions[@]}"; do
     echo "Build SEAL $version"
     git clone https://github.com/microsoft/SEAL.git SEAL-$version
     cd ./SEAL-$version
-    m -rf build
+    rm -rf build
     git reset --hard $version
     cmake -S . -B build $cmake_build_type -DSEAL_BUILD_BENCH=OFF -DSEAL_BUILD_EXAMPLES=OFF -DSEAL_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=/usr/local/SEAL-$version
     cmake --build build
