@@ -38,7 +38,7 @@ fi
 #    echo "Found in cache"
 #fi
 
-openfhe_versions=("v1.0.1" "v1.0.2" "v1.0.3" "v1.0.4" "v1.1.2" "v1.1.4")
+openfhe_versions=("v1.0.1" "v1.0.2" "v1.0.3" "v1.0.4" "v1.1.2" "v1.1.4" "v1.2.0")
 for version in "${openfhe_versions[@]}"; do
     git clone https://github.com/openfheorg/openfhe-development.git OpenFHE-$version
     echo "Build OpenFHE $version"
