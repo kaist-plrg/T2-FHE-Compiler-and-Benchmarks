@@ -85,6 +85,7 @@ TOKEN :
   | < ROTATE_RIGHT: "rotate_right" >
   | < START_TIMER: "tstart" >
   | < STOP_TIMER: "tstop" >
+  | < RELINEARIZE: "relinearize" >
 }
 
 TOKEN : /* LITERALS */
@@ -242,6 +243,7 @@ void Statement() : {} {
 |   RotateRightStatement() ";"
 |   StartTimerStatement() ";"
 |   StopTimerStatement() ";"
+|   RelinearizeStatement() ";"
 }
 
 void Block() : {} {
@@ -359,6 +361,10 @@ void StartTimerStatement() : {} {
 
 void StopTimerStatement() : {} {
   <STOP_TIMER> "(" ")"
+}
+
+void RelinearizeStatement() : {} {
+  <RELINEARIZE> "(" Expression() ")"
 }
 
 void Expression() : {} {
