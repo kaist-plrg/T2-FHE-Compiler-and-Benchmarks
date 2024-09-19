@@ -172,8 +172,10 @@ void Type() : {} {
     EncryptedDoubleArrayType()
 |   BooleanType()
 |   IntegerType()
+|   ConstantIntegerType()
 |   EncryptedIntegerType()
 |   DoubleType()
+|   ConstantDoubleType()
 |   EncryptedDoubleType()
 |   Identifier()
 }
@@ -202,12 +204,20 @@ void IntegerType() : {} {
   "int"
 }
 
+void ConstantIntegerType() : {} {
+  "ConstInt"
+}
+
 void EncryptedIntegerType() : {} {
   "EncInt"
 }
 
 void DoubleType() : {} {
   "double"
+}
+
+void ConstantDoubleType() : {} {
+  "ConstDouble"
 }
 
 void EncryptedDoubleType() : {} {
