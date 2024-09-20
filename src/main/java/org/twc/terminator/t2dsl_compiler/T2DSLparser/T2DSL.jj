@@ -65,8 +65,10 @@ TOKEN :
   | < WHILE: "while" >
   | < FOR: "for" >
   | < INTEGER: "int" >
+  | < CONSTANT_INTEGER: "ConstInt" >
   | < ENCRYPTED_INTEGER: "EncInt" >
   | < DOUBLE: "double" >
+  | < CONSTANT_DOUBLE: "ConstDouble" >
   | < ENCRYPTED_DOUBLE: "EncDouble" >
   | < MAIN: "main" >
   | < NEW: "new" >
