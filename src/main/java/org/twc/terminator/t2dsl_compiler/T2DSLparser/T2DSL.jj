@@ -169,6 +169,10 @@ void Type() : {} {
 |   LOOKAHEAD(3)
     DoubleArrayType()
 |   LOOKAHEAD(3)
+    ConstantArrayType()
+|   LOOKAHEAD(3)
+    ConstantDoubleArrayType()
+|   LOOKAHEAD(3)
     EncryptedArrayType()
 |   LOOKAHEAD(3)
     EncryptedDoubleArrayType()
@@ -188,6 +192,14 @@ void ArrayType() : {} {
 
 void DoubleArrayType() : {} {
   "double" "[" "]"
+}
+
+void ConstantArrayType() : {} {
+  "ConstInt" "[" "]"
+}
+
+void ConstantDoubleArrayType() : {} {
+  "ConstDouble" "[" "]"
 }
 
 void EncryptedArrayType() : {} {
