@@ -48,10 +48,11 @@ public class SymbolTableVisitor extends GJNoArguDepthFirst<Var_t> {
       for (int i = 0; i < n.f6.size(); ++i) {
         Var_t variable = n.f6.nodes.get(i).accept(this);
         String var_t = variable.getType();
-        if (!(var_t.equals("int") || var_t.equals("EncInt") ||
-              var_t.equals("double") || var_t.equals("EncDouble") ||
+        if (!(var_t.equals("int") || var_t.equals("ConstInt") || var_t.equals("EncInt") ||
+              var_t.equals("double") || var_t.equals("ConstDouble") || var_t.equals("EncDouble") ||
               var_t.equals("bool") ||
               var_t.equals("int[]") || var_t.equals("double[]") ||
+              var_t.equals("ConstInt[]") || var_t.equals("ConstDouble[]") ||
               var_t.equals("EncInt[]") || var_t.equals("EncDouble[]")) ) {
           throw new Exception("Unknown type " + var_t);
         }
@@ -124,6 +125,7 @@ public class SymbolTableVisitor extends GJNoArguDepthFirst<Var_t> {
    * | ForStatement()
    * | PrintStatement() ";"
    * | PrintLineStatement() ";"
+   * | RelinearizeStatement() ";"
    */
   public Var_t visit(Statement n) throws Exception {
     return n.f0.accept(this);
@@ -150,9 +152,11 @@ public class SymbolTableVisitor extends GJNoArguDepthFirst<Var_t> {
 
   /**
    * f0 -> ArrayType()
+   * | ConstantArrayType()
    * | EncryptedArrayType()
    * | BooleanType()
    * | IntegerType()
+   * | ConstantIntegerType()
    * | EncryptedIntegerType()
    * | Identifier()
    */
@@ -176,6 +180,24 @@ public class SymbolTableVisitor extends GJNoArguDepthFirst<Var_t> {
    */
   public Var_t visit(DoubleArrayType n) throws Exception {
     return new Var_t("double[]", null);
+  }
+
+  /**
+   * f0 -> "ConstInt"
+   * f1 -> "["
+   * f2 -> "]"
+   */
+  public Var_t visit(ConstantArrayType n) throws Exception {
+    return new Var_t("ConstInt[]", null);
+  }
+
+  /**
+   * f0 -> "EncDouble"
+   * f1 -> "["
+   * f2 -> "]"
+   */
+  public Var_t visit(ConstantDoubleArrayType n) throws Exception {
+    return new Var_t("ConstDouble[]", null);
   }
 
   /**
@@ -211,6 +233,13 @@ public class SymbolTableVisitor extends GJNoArguDepthFirst<Var_t> {
   }
 
   /**
+   * f0 -> "ConstInt"
+   */
+  public Var_t visit(ConstantIntegerType n) throws Exception {
+    return new Var_t("ConstInt", null);
+  }
+
+  /**
    * f0 -> "EncInt"
    */
   public Var_t visit(EncryptedIntegerType n) throws Exception {
@@ -222,6 +251,13 @@ public class SymbolTableVisitor extends GJNoArguDepthFirst<Var_t> {
    */
   public Var_t visit(DoubleType n) throws Exception {
     return new Var_t("double", null);
+  }
+
+  /**
+   * f0 -> "ConstDouble"
+   */
+  public Var_t visit(ConstantDoubleType n) throws Exception {
+    return new Var_t("ConstantDouble", null);
   }
 
   /**
