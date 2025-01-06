@@ -18,9 +18,13 @@ public class T2_2_OpenFHE extends T2_Compiler {
   public T2_2_OpenFHE(SymbolTable st, String config_file_path, int word_sz, Stream<String> configs) {
     super(st, config_file_path, word_sz, configs);
     if (this.is_binary_) {
+      this.st_.backend_types.put("ConstInt", "int");
+      this.st_.backend_types.put("ConstInt[]", "vector<int>");
       this.st_.backend_types.put("EncInt", "vector<Ciphertext<DCRTPoly>>");
       this.st_.backend_types.put("EncInt[]", "vector<vector<Ciphertext<DCRTPoly>>>");
     } else {
+      this.st_.backend_types.put("ConstInt", "int");
+      this.st_.backend_types.put("ConstInt[]", "vector<int>");
       this.st_.backend_types.put("EncInt", "Ciphertext<DCRTPoly>");
       this.st_.backend_types.put("EncInt[]", "vector<Ciphertext<DCRTPoly>>");
     }
@@ -29,9 +33,13 @@ public class T2_2_OpenFHE extends T2_Compiler {
   public T2_2_OpenFHE(SymbolTable st, String config_file_path, int word_sz) {
     super(st, config_file_path, word_sz);
     if (this.is_binary_) {
+      this.st_.backend_types.put("ConstInt", "int");
+      this.st_.backend_types.put("ConstInt[]", "vector<int>");
       this.st_.backend_types.put("EncInt", "vector<Ciphertext<DCRTPoly>>");
       this.st_.backend_types.put("EncInt[]", "vector<vector<Ciphertext<DCRTPoly>>>");
     } else {
+      this.st_.backend_types.put("ConstInt", "int");
+      this.st_.backend_types.put("ConstInt[]", "vector<int>");
       this.st_.backend_types.put("EncInt", "Ciphertext<DCRTPoly>");
       this.st_.backend_types.put("EncInt[]", "vector<Ciphertext<DCRTPoly>>");
     }
@@ -194,6 +202,10 @@ public class T2_2_OpenFHE extends T2_Compiler {
       this.asm_.append(";\n");
       this.indent_ -= 2;
       append_idx("}\n");
+    } else if ((lhs_type.equals("ConstInt") && rhs_type.equals("int")) || 
+        (lhs_type.equals("ConstInt[]") && rhs_type.equals("int[]"))) {
+      append_idx(lhs.getName() + " = " + rhs_name);
+      this.semicolon_ = true;
     } else if (lhs_type.equals(rhs_type)) {
       // if the destination has the same type as the source.
       if (this.is_binary_ && (lhs_type.equals("EncInt") || lhs_type.equals("EncInt[]"))) {
@@ -290,7 +302,8 @@ public class T2_2_OpenFHE extends T2_Compiler {
     Var_t rhs = n.f2.accept(this);
     String lhs_type = st_.findType(lhs);
     String rhs_type = st_.findType(rhs);
-    if (lhs_type.equals("int") && rhs_type.equals("int")) {
+    if ((lhs_type.equals("int") || lhs_type.equals("ConstInt")) && 
+        (rhs_type.equals("int") || rhs_type.equals("ConstInt"))) {
       append_idx(lhs.getName());
       this.asm_.append(" ").append(op).append(" ");
       this.asm_.append(rhs.getName());
@@ -319,7 +332,8 @@ public class T2_2_OpenFHE extends T2_Compiler {
             this.asm_.append(" = cc->EvalAdd(");
             break;
           case "*=":
-            this.asm_.append(" = cc->EvalMultAndRelinearize(");
+            // this.asm_.append(" = cc->EvalMultAndRelinearize(");
+            this.asm_.append(" = cc->EvalMultNoRelin(");
             break;
           case "-=":
             this.asm_.append(" = cc->EvalSub(");
@@ -329,7 +343,8 @@ public class T2_2_OpenFHE extends T2_Compiler {
         }
         this.asm_.append(lhs.getName()).append(", ").append(rhs.getName()).append(")");
       }
-    } else if (lhs_type.equals("EncInt") && rhs_type.equals("int")) {
+    // } else if (lhs_type.equals("EncInt") && rhs_type.equals("int")) {   // <- because of deprecation of ciphertext + constant
+    } else if (lhs_type.equals("EncInt") && (rhs_type.equals("int") || rhs_type.equals("ConstInt"))) {
       if (this.is_binary_) {
         encrypt("tmp_", new String[] { rhs.getName() });
         this.asm_.append(";\n");
@@ -383,7 +398,29 @@ public class T2_2_OpenFHE extends T2_Compiler {
         }
         this.asm_.append(lhs.getName()).append(", tmp)");
       }
-    }
+    } 
+  // Deprecated: ciphertext + constant is commented out from v4.1.2?
+  //   else if (lhs_type.equals("EncInt") && rhs_type.equals("ConstInt")) {
+  //     // if (this.is_binary_) 
+  //     //   
+  //     // } else {
+  //     append_idx(lhs.getName());
+  //     switch (op) {
+  //       case "+=":
+  //         this.asm_.append(" = cc->EvalAdd(");
+  //         break;
+  //       case "*=":
+  //         this.asm_.append(" = cc->EvalMult(");
+  //         break;
+  //       case "-=":
+  //         this.asm_.append(" = cc->EvalSub(");
+  //         break;
+  //       default:
+  //         throw new Exception("Bad operand types: " + lhs_type + " " + op + " " + rhs_type);
+  //     }
+  //     this.asm_.append(lhs.getName()).append(", tmp)");
+  //     // }
+  // }
     this.semicolon_ = true;
     return null;
   }
@@ -404,7 +441,7 @@ public class T2_2_OpenFHE extends T2_Compiler {
     String op = n.f4.accept(this).getName();
     Var_t rhs = n.f5.accept(this);
     String rhs_type = st_.findType(rhs);
-    if (id_type.equals("int[]")) {
+    if (id_type.equals("int[]") || id_type.equals("ConstInt[]")) {
       append_idx(id.getName());
       this.asm_.append("[").append(idx.getName()).append("] ").append(op);
       this.asm_.append(" ").append(rhs.getName());
@@ -433,7 +470,8 @@ public class T2_2_OpenFHE extends T2_Compiler {
           if (op.equals("+=")) {
             this.asm_.append(" = cc->EvalAdd(");
           } else if (op.equals("*=")) {
-            this.asm_.append(" = cc->EvalMultAndRelinearize(");
+            // this.asm_.append(" = cc->EvalMultAndRelinearize(");
+            this.asm_.append(" = cc->EvalMultNoRelin(");
           } else if (op.equals("-=")) {
             this.asm_.append(" = cc->EvalSub(");
           } else {
@@ -442,7 +480,7 @@ public class T2_2_OpenFHE extends T2_Compiler {
           this.asm_.append(id.getName()).append("[").append(idx.getName());
           this.asm_.append("], ").append(rhs.getName()).append(")");
         }
-      } else if (rhs_type.equals("int")) {
+      } else if (rhs_type.equals("int") || rhs_type.equals("ConstInt")) { // due to the deprication of opreation between cipher & const
         if (this.is_binary_) {
           if ("<<=".equals(op)) {
             this.asm_.append(" = shift_left_bin(cc, ").append(id.getName());
@@ -523,6 +561,7 @@ public class T2_2_OpenFHE extends T2_Compiler {
     String rhs_type = st_.findType(rhs);
     switch (id_type) {
       case "int[]":
+      case "ConstInt[]":
         append_idx(id.getName());
         this.asm_.append("[").append(idx.getName()).append("] = ");
         this.asm_.append(rhs.getName());
@@ -533,7 +572,7 @@ public class T2_2_OpenFHE extends T2_Compiler {
           this.asm_.append("[").append(idx.getName()).append("] = ");
           this.asm_.append(rhs.getName()).append(";\n");
           break;
-        } else if (rhs_type.equals("int")) {
+        } else if (rhs_type.equals("int") || rhs_type.equals("ConstInt")) {
           encrypt(id.getName() + "[" + idx.getName() + "]",
               new String[] { rhs.getName() });
           break;
@@ -560,6 +599,7 @@ public class T2_2_OpenFHE extends T2_Compiler {
     String exp_type = st_.findType(exp);
     switch (id_type) {
       case "int[]":
+      case "ConstInt[]":
         append_idx(id.getName());
         this.asm_.append(" = { ").append(exp.getName());
         if (n.f4.present()) {
@@ -691,6 +731,7 @@ public class T2_2_OpenFHE extends T2_Compiler {
     String expr_type = st_.findType(expr);
     switch (expr_type) {
       case "int":
+      case "ConstInt":
         append_idx("cout << ");
         this.asm_.append(expr.getName());
         this.asm_.append(" << endl");
@@ -742,7 +783,7 @@ public class T2_2_OpenFHE extends T2_Compiler {
     String size_type = size.getType();
     if (size_type == null)
       size_type = st_.findType(size);
-    if (!size_type.equals("int"))
+    if (!size_type.equals("int") && !size_type.equals("ConstInt"))
       throw new RuntimeException("PrintBatchedStatement: size type");
     if (this.is_binary_) {
       for (int i = 0; i < this.word_sz_; i++) {
@@ -849,6 +890,22 @@ public class T2_2_OpenFHE extends T2_Compiler {
   }
 
   /**
+   * f0 -> <RELINEARIZE>
+   * f1 -> "("
+   * f2 -> Expression()
+   * f3 -> ")"
+   */
+  public Var_t visit(RelinearizeStatement n) throws Exception {
+    Var_t expr = n.f2.accept(this);
+    String expr_type = st_.findType(expr);
+    if (!expr_type.equals("EncInt"))
+      throw new RuntimeException("ReduceNoiseStatement");
+    append_idx("cc->Relinearize(");
+    this.asm_.append(expr.getName()).append(");\n");
+    return null;
+  }
+
+  /**
    * f0 -> PrimaryExpression()
    * f1 -> BinOperator()
    * f2 -> PrimaryExpression()
@@ -869,7 +926,18 @@ public class T2_2_OpenFHE extends T2_Compiler {
           "&&".equals(op) || "||".equals(op)) {
         return new Var_t("bool", lhs.getName() + op + rhs.getName());
       }
-    } else if (lhs_type.equals("int") && rhs_type.equals("EncInt")) {
+    } else if (lhs_type.equals("ConstInt") && rhs_type.equals("ConstInt")) {
+      if ("&".equals(op) || "|".equals(op) || "^".equals(op) || "<<".equals(op) ||
+          ">>".equals(op) || "+".equals(op) || "-".equals(op) || "*".equals(op) ||
+          "/".equals(op) || "%".equals(op)) {
+        return new Var_t("ConstInt", lhs.getName() + op + rhs.getName());
+      } else if ("==".equals(op) || "!=".equals(op) || "<".equals(op) ||
+          "<=".equals(op) || ">".equals(op) || ">=".equals(op) ||
+          "&&".equals(op) || "||".equals(op)) {
+        return new Var_t("bool", lhs.getName() + op + rhs.getName());
+      } 
+    } else if ((lhs_type.equals("int") || lhs_type.equals("ConstInt")) && rhs_type.equals("EncInt")) {
+      // due to the deprication of opreation between cipher & const
       String res_ = new_ctxt_tmp();
       if (this.is_binary_) {
         encrypt("tmp_", new String[] { lhs.getName() });
@@ -984,7 +1052,8 @@ public class T2_2_OpenFHE extends T2_Compiler {
         }
       }
       return new Var_t("EncInt", res_);
-    } else if (lhs_type.equals("EncInt") && rhs_type.equals("int")) {
+    } else if (lhs_type.equals("EncInt") && (rhs_type.equals("int") || rhs_type.equals("ConstInt"))) {
+      // due to the deprication of opreation between cipher & const
       String res_ = new_ctxt_tmp();
       if (this.is_binary_) {
         encrypt("tmp_", new String[] { rhs.getName() });
@@ -1173,7 +1242,8 @@ public class T2_2_OpenFHE extends T2_Compiler {
             break;
           case "*":
             append_idx(res_ + " = cc->");
-            this.asm_.append("EvalMultAndRelinearize(").append(lhs.getName());
+            // this.asm_.append("EvalMultAndRelinearize(").append(lhs.getName());
+            this.asm_.append("EvalMultNoRelin(").append(lhs.getName());
             this.asm_.append(", ").append(rhs.getName()).append(");\n");
             break;
           case "-":
@@ -1231,6 +1301,8 @@ public class T2_2_OpenFHE extends T2_Compiler {
     String exp_type = st_.findType(exp);
     if (exp_type.equals("int")) {
       return new Var_t("int", "~" + exp.getName());
+    } else if (exp_type.equals("ConstInt")) {
+      return new Var_t("ConstInt", "~" + exp.getName());
     } else if (exp_type.equals("EncInt")) {
       String res_ = new_ctxt_tmp();
       if (this.is_binary_) {
@@ -1264,15 +1336,29 @@ public class T2_2_OpenFHE extends T2_Compiler {
     String e1_t = st_.findType(e1);
     String e2_t = st_.findType(e2);
     String res_;
-    if (cond_t.equals("bool") || cond_t.equals("int") || cond_t.equals("double")) {
+    if (cond_t.equals("bool") || cond_t.equals("int") || cond_t.equals("double") || cond_t.equals("ConstInt") || cond_t.equals("ConstDouble")) {
       if (e1_t.equals(e2_t)) {
         res_ = "tmp_" + (++tmp_cnt_);
         append_idx(this.st_.backend_types.get(e1_t) + " " + res_ + " = (");
         this.asm_.append(cond.getName()).append(")").append(" ? ");
         this.asm_.append(e1.getName()).append(" : ").append(e2.getName()).append(";\n");
         return new Var_t(e1_t, res_);
+      } else if ((e1_t.equals("int") || e1_t.equals("double")) &&
+          (e2_t.equals("ConstInt") || e2_t.equals("ConstDouble"))) {
+        res_ = "tmp_" + (++tmp_cnt_);
+        append_idx(this.st_.backend_types.get(e1_t) + " " + res_ + " = (");
+        this.asm_.append(cond.getName()).append(")").append(" ? ");
+        this.asm_.append(e1.getName()).append(" : ").append(e2.getName()).append(";\n");
+        return new Var_t(e1_t, res_);
+      } else if ((e2_t.equals("int") || e2_t.equals("double")) &&
+          (e1_t.equals("ConstInt") || e1_t.equals("ConstDouble"))) {
+        res_ = "tmp_" + (++tmp_cnt_);
+        append_idx(this.st_.backend_types.get(e2_t) + " " + res_ + " = (");
+        this.asm_.append(cond.getName()).append(")").append(" ? ");
+        this.asm_.append(e1.getName()).append(" : ").append(e2.getName()).append(";\n");
+        return new Var_t(e2_t, res_);
       } else if ((e1_t.equals("EncInt") || e1_t.equals("EncDouble")) &&
-          (e2_t.equals("int") || e2_t.equals("double"))) {
+          (e2_t.equals("int") || e2_t.equals("double") || e2_t.equals("ConstInt") || e2_t.equals("ConstDouble"))) {
         res_ = new_ctxt_tmp();
         String e2_enc = new_ctxt_tmp();
         encrypt(e2_enc, new String[] { e2.getName() });
@@ -1281,7 +1367,7 @@ public class T2_2_OpenFHE extends T2_Compiler {
         this.asm_.append(" : ").append(e2_enc).append(";\n");
         return new Var_t(e1_t, res_);
       } else if ((e2_t.equals("EncInt") || e2_t.equals("EncDouble")) &&
-          (e1_t.equals("int") || e1_t.equals("double"))) {
+          (e1_t.equals("int") || e1_t.equals("double") || e1_t.equals("ConstInt") || e1_t.equals("ConstDouble"))) {
         res_ = new_ctxt_tmp();
         String e1_enc = new_ctxt_tmp();
         encrypt(e1_enc, new String[] { e1.getName() });
@@ -1293,7 +1379,7 @@ public class T2_2_OpenFHE extends T2_Compiler {
     } else if (cond_t.equals("EncInt") || cond_t.equals("EncDouble")) {
       res_ = new_ctxt_tmp();
       if (e1_t.equals(e2_t)) {
-        if (e1_t.equals("int") || e1_t.equals("double")) {
+        if (e1_t.equals("int") || e1_t.equals("double") || e1_t.equals("ConstInt") || e1_t.equals("ConstDouble")) {
           String e1_enc = new_ctxt_tmp(), e2_enc = new_ctxt_tmp();
           encrypt(e1_enc, new String[] { e1.getName() });
           this.asm_.append(";\n");
@@ -1317,8 +1403,25 @@ public class T2_2_OpenFHE extends T2_Compiler {
           this.asm_.append(");\n");
           return new Var_t(e1_t, res_);
         }
+      } else if (((e1_t.equals("int") || e1_t.equals("double")) &&
+          (e2_t.equals("ConstInt") || e2_t.equals("ConstDouble"))) ||
+          ((e2_t.equals("int") || e2_t.equals("double")) &&
+          (e1_t.equals("ConstInt") || e1_t.equals("ConstDouble")))) {
+        String e1_enc = new_ctxt_tmp(), e2_enc = new_ctxt_tmp();
+        encrypt(e1_enc, new String[] { e1.getName() });
+        this.asm_.append(";\n");
+        encrypt(e2_enc, new String[] { e2.getName() });
+        this.asm_.append(";\n");
+        if (this.is_binary_) {
+          append_idx(res_ + " = mux_bin(cc, " + cond.getName() + ", ");
+        } else {
+          append_idx(res_ + " = mux(cc, " + cond.getName() + ", ");
+        }
+        this.asm_.append(e1_enc).append(", ").append(e2_enc);
+        this.asm_.append(");\n");
+        return new Var_t("EncInt", res_);
       } else if ((e1_t.equals("EncInt") || e1_t.equals("EncDouble")) &&
-          (e2_t.equals("int") || e2_t.equals("double"))) {
+          (e2_t.equals("int") || e2_t.equals("double") || e2_t.equals("ConstInt") || e2_t.equals("ConstDouble"))) {
         String e2_enc = new_ctxt_tmp();
         encrypt(e2_enc, new String[] { e2.getName() });
         this.asm_.append(";\n");
@@ -1330,7 +1433,7 @@ public class T2_2_OpenFHE extends T2_Compiler {
         this.asm_.append(e1.getName()).append(", ").append(e2_enc).append(");\n");
         return new Var_t(e1_t, res_);
       } else if ((e2_t.equals("EncInt") || e2_t.equals("EncDouble")) &&
-          (e1_t.equals("int") || e1_t.equals("double"))) {
+          (e1_t.equals("int") || e1_t.equals("double") || e1_t.equals("ConstInt") || e1_t.equals("ConstDouble"))) {
         String e1_enc = new_ctxt_tmp();
         encrypt(e1_enc, new String[] { e1.getName() });
         this.asm_.append(";\n");

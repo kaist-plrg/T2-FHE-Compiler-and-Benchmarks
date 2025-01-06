@@ -13,12 +13,16 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
 
   public T2_2_OpenFHE_CKKS(SymbolTable st, String config_file_path,  Stream<String> configs) {
     super(st, config_file_path, 0, configs);
+    this.st_.backend_types.put("ConstDouble", "double");
+    this.st_.backend_types.put("ConstDouble[]", "vector<double>");
     this.st_.backend_types.put("EncDouble", "Ciphertext<DCRTPoly>");
     this.st_.backend_types.put("EncDouble[]", "vector<Ciphertext<DCRTPoly>>");
   }
 
   public T2_2_OpenFHE_CKKS(SymbolTable st, String config_file_path) {
     super(st, config_file_path, 0);
+    this.st_.backend_types.put("ConstDouble", "double");
+    this.st_.backend_types.put("ConstDouble[]", "vector<double>");
     this.st_.backend_types.put("EncDouble", "Ciphertext<DCRTPoly>");
     this.st_.backend_types.put("EncDouble[]", "vector<Ciphertext<DCRTPoly>>");
   }
@@ -96,6 +100,10 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
       this.asm_.append(".publicKey, tmp);\n");
       this.indent_ -= 2;
       append_idx("}\n");
+    } else if ((lhs_type.equals("ConstDouble") && rhs_type.equals("double")) || 
+        (lhs_type.equals("ConstDouble[]") && rhs_type.equals("double[]"))) {
+      append_idx(lhs.getName() + " = " + rhs_name);
+      this.semicolon_ = true;
     } else if (lhs_type.equals(rhs_type)) {
       // if the destination has the same type as the source.
       append_idx(lhs.getName());
@@ -166,8 +174,8 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
     Var_t rhs = n.f2.accept(this);
     String lhs_type = st_.findType(lhs);
     String rhs_type = st_.findType(rhs);
-    if ((lhs_type.equals("int") || lhs_type.equals("double")) &&
-        (rhs_type.equals("int") || rhs_type.equals("double"))) {
+    if ((lhs_type.equals("int") || lhs_type.equals("double") || lhs_type.equals("ConstInt") || lhs_type.equals("ConstDouble")) &&
+        (rhs_type.equals("int") || rhs_type.equals("double") || rhs_type.equals("ConstInt") || rhs_type.equals("ConstDouble"))) {
       append_idx(lhs.getName());
       this.asm_.append(" ").append(op).append(" ");
       this.asm_.append(rhs.getName());
@@ -178,7 +186,8 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
           this.asm_.append(" = cc->EvalAdd(");
           break;
         case "*=":
-          this.asm_.append(" = cc->EvalMultAndRelinearize(");
+          // this.asm_.append(" = cc->EvalMultAndRelinearize(");
+          this.asm_.append(" = cc->EvalMultNoRelin(");
           break;
         case "-=":
           this.asm_.append(" = cc->EvalSub(");
@@ -188,7 +197,7 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
       }
       this.asm_.append(lhs.getName()).append(", ").append(rhs.getName()).append(")");
     } else if (lhs_type.equals("EncDouble") &&
-        (rhs_type.equals("int") || rhs_type.equals("double"))) {
+        (rhs_type.equals("int") || rhs_type.equals("double") || rhs_type.equals("ConstInt"))) {
       String tmp_vec = "tmp_vec_" + (++tmp_cnt_);
       append_idx("vector<double> " + tmp_vec + "(slots, " + rhs.getName() + ");\n");
       append_idx("tmp = cc->MakeCKKSPackedPlaintext(");
@@ -209,6 +218,23 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
           throw new Exception("Bad operand types: " + lhs_type + " " + op + " " + rhs_type);
       }
       this.asm_.append(lhs.getName()).append(", tmp)");
+    } else if (lhs_type.equals("EncDouble") && rhs_type.equals("ConstDouble")) {
+      append_idx(lhs.getName());
+      switch (op) {
+        case "+=":
+          this.asm_.append(" = cc->EvalAdd(");
+          break;
+        case "*=":
+          this.asm_.append(" = cc->EvalMult(");
+          break;
+        // auto c2_depth1 = cc->Rescale(c2_depth2);
+        case "-=":
+          this.asm_.append(" = cc->EvalSub(");
+          break;
+        default:
+          throw new Exception("Bad operand types: " + lhs_type + " " + op + " " + rhs_type);
+      }
+      this.asm_.append(lhs.getName()).append(", ").append(rhs.getName()).append(")");
     }
     this.semicolon_ = true;
     return null;
@@ -232,6 +258,8 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
     switch (id_type) {
       case "int[]":
       case "double[]":
+      case "ConstInt[]":
+      case "ConstDouble[]":
         append_idx(id.getName());
         this.asm_.append("[").append(idx.getName()).append("] ").append(op);
         this.asm_.append(" ").append(rhs.getName());
@@ -243,7 +271,8 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
           if (op.equals("+=")) {
             this.asm_.append(" = cc->EvalAdd(");
           } else if (op.equals("*=")) {
-            this.asm_.append(" = cc->EvalMultAndRelinearize(");
+            // this.asm_.append(" = cc->EvalMultAndRelinearize(");
+            this.asm_.append(" = cc->EvalMultNoRelin(");
           } else if (op.equals("-=")) {
             this.asm_.append(" = cc->EvalSub(");
           } else {
@@ -252,7 +281,22 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
           this.asm_.append(id.getName()).append("[").append(idx.getName());
           this.asm_.append("], ").append(rhs.getName()).append(")");
           break;
-        } else if (rhs_type.equals("int") || rhs_type.equals("double")) {
+        } else if (rhs_type.equals("ConstDouble")) {
+          append_idx(id.getName());
+          this.asm_.append("[").append(idx.getName()).append("]");
+          if (op.equals("+=")) {
+            this.asm_.append(" = cc->EvalAdd(");
+          } else if (op.equals("*=")) {
+            this.asm_.append(" = cc->EvalMult(");
+          } else if (op.equals("-=")) {
+            this.asm_.append(" = cc->EvalSub(");
+          } else {
+            throw new Exception("Compound array: " + op + " " + rhs_type);
+          }
+          this.asm_.append(id.getName()).append("[").append(idx.getName());
+          this.asm_.append("], ").append(rhs.getName()).append(")");
+          break;
+        } else if (rhs_type.equals("int") || rhs_type.equals("double") || rhs_type.equals("ConstInt")) {
           String tmp_vec = "tmp_vec_" + (++tmp_cnt_);
           append_idx("vector<double> " + tmp_vec + "(slots, " + rhs.getName() + ");\n");
           append_idx("tmp = cc->MakeCKKSPackedPlaintext(");
@@ -298,6 +342,8 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
     switch (id_type) {
       case "int[]":
       case "double[]":
+      case "ConstInt[]":
+      case "ConstDouble[]":
         append_idx(id.getName());
         this.asm_.append("[").append(idx.getName()).append("] = ");
         this.asm_.append(rhs.getName());
@@ -308,7 +354,8 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
           this.asm_.append("[").append(idx.getName()).append("] = ");
           this.asm_.append(rhs.getName()).append(";\n");
           break;
-        } else if (rhs_type.equals("int") || rhs_type.equals("double")) {
+        } else if (rhs_type.equals("int") || rhs_type.equals("double") || 
+            rhs_type.equals("ConstInt") || rhs_type.equals("ConstDouble")) {
           String tmp_vec = "tmp_vec_" + (++tmp_cnt_);
           append_idx("vector<double> " + tmp_vec + "(slots, " + rhs.getName() + ");\n");
           append_idx("tmp = cc->MakeCKKSPackedPlaintext(");
@@ -341,6 +388,8 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
     switch (id_type) {
       case "int[]":
       case "double[]":
+      case "ConstInt[]":
+      case "ConstDouble[]":
         append_idx(id.getName());
         this.asm_.append(" = { ").append(exp.getName());
         if (n.f4.present()) {
@@ -456,6 +505,8 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
     switch (expr_type) {
       case "int":
       case "double":
+      case "ConstInt":
+      case "ConstDouble":
         append_idx("cout << ");
         this.asm_.append(expr.getName());
         this.asm_.append(" << endl");
@@ -493,7 +544,7 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
     String size_type = size.getType();
     if (size_type == null)
       size_type = st_.findType(size);
-    if (!size_type.equals("int"))
+    if (!size_type.equals("int") && !size_type.equals("ConstInt"))
       throw new RuntimeException("PrintBatchedStatement: size type");
     append_idx("cc->Decrypt(keyPair.secretKey, ");
     this.asm_.append(expr.getName()).append(", ").append("&tmp);\n");
@@ -561,6 +612,22 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
   }
 
   /**
+   * f0 -> <RELINEARIZE>
+   * f1 -> "("
+   * f2 -> Expression()
+   * f3 -> ")"
+   */
+  public Var_t visit(RelinearizeStatement n) throws Exception {
+    Var_t expr = n.f2.accept(this);
+    String expr_type = st_.findType(expr);
+    if (!expr_type.equals("EncDouble"))
+      throw new RuntimeException("ReduceNoiseStatement");
+    append_idx("cc->Relinearize(");
+    this.asm_.append(expr.getName()).append(");\n");
+    return null;
+  }
+
+  /**
    * f0 -> PrimaryExpression()
    * f1 -> BinOperator()
    * f2 -> PrimaryExpression()
@@ -581,6 +648,16 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
           "&&".equals(op) || "||".equals(op)) {
         return new Var_t("bool", lhs.getName() + op + rhs.getName());
       }
+    } else if (lhs_type.equals("ConstInt") && rhs_type.equals("ConstInt")) {
+      if ("&".equals(op) || "|".equals(op) || "^".equals(op) || "<<".equals(op) ||
+          ">>".equals(op) || "+".equals(op) || "-".equals(op) || "*".equals(op) ||
+          "/".equals(op) || "%".equals(op)) {
+        return new Var_t("ConstInt", lhs.getName() + op + rhs.getName());
+      } else if ("==".equals(op) || "!=".equals(op) || "<".equals(op) ||
+          "<=".equals(op) || ">".equals(op) || ">=".equals(op) ||
+          "&&".equals(op) || "||".equals(op)) {
+        return new Var_t("bool", lhs.getName() + op + rhs.getName());
+      } 
     } else if ((lhs_type.equals("int") || lhs_type.equals("double")) &&
         (rhs_type.equals("int") || rhs_type.equals("double"))) {
       if ("&".equals(op) || "|".equals(op) || "^".equals(op) || "<<".equals(op) ||
@@ -592,7 +669,18 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
           "&&".equals(op) || "||".equals(op)) {
         return new Var_t("bool", lhs.getName() + op + rhs.getName());
       }
-    } else if ((lhs_type.equals("int") || lhs_type.equals("double")) &&
+    } else if ((lhs_type.equals("ConstInt") || lhs_type.equals("ConstDouble")) &&
+        (rhs_type.equals("ConstInt") || rhs_type.equals("ConstDouble"))) {
+      if ("&".equals(op) || "|".equals(op) || "^".equals(op) || "<<".equals(op) ||
+          ">>".equals(op) || "+".equals(op) || "-".equals(op) || "*".equals(op) ||
+          "/".equals(op) || "%".equals(op)) {
+        return new Var_t("ConstDouble", lhs.getName() + op + rhs.getName());
+      } else if ("==".equals(op) || "!=".equals(op) || "<".equals(op) ||
+          "<=".equals(op) || ">".equals(op) || ">=".equals(op) ||
+          "&&".equals(op) || "||".equals(op)) {
+        return new Var_t("bool", lhs.getName() + op + rhs.getName());
+      }
+    } else if ((lhs_type.equals("int") || lhs_type.equals("double") || lhs_type.equals("ConstInt")) &&
         rhs_type.equals("EncDouble")) {
       String res_ = new_ctxt_tmp();
       String tmp_vec = "tmp_vec_" + (++tmp_cnt_);
@@ -621,7 +709,7 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
       }
       return new Var_t("EncDouble", res_);
     } else if (lhs_type.equals("EncDouble") &&
-        (rhs_type.equals("int") || rhs_type.equals("double"))) {
+        (rhs_type.equals("int") || rhs_type.equals("double") || rhs_type.equals("ConstInt"))) {
       String res_ = new_ctxt_tmp();
       String tmp_vec = "tmp_vec_" + (++tmp_cnt_);
       append_idx("vector<double> " + tmp_vec + "(slots, " + rhs.getName() + ");\n");
@@ -648,6 +736,34 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
           throw new Exception("Bad operand types: " + lhs_type + " " + op + " " + rhs_type);
       }
       return new Var_t("EncDouble", res_);
+    } else if ((lhs_type.equals("ConstDouble") && rhs_type.equals("EncDouble")) ||
+        (rhs_type.equals("ConstDouble") && lhs_type.equals("EncDouble"))) {
+      String res_ = new_ctxt_tmp();
+      append_idx(res_);
+      this.asm_.append(" = cc->");
+      switch (op) {
+        case "+":
+          this.asm_.append("EvalAdd(").append(lhs.getName()).append(", ");
+          this.asm_.append(rhs.getName()).append(");\n");
+          break;
+        case "*":
+          this.asm_.append("EvalMult(").append(lhs.getName());
+          this.asm_.append(", ").append(rhs.getName()).append(");\n");
+          break;
+        case "-":
+          this.asm_.append("EvalSub(").append(lhs.getName()).append(", ");
+          this.asm_.append(rhs.getName()).append(");\n");
+          break;
+        case "^":
+          throw new Exception("XOR over encrypted doubles is not possible");
+        case "==":
+        case "<":
+        case "<=":
+          throw new RuntimeException("Comparisons not possible in CKKS");
+        default:
+          throw new Exception("Bad operand types: " + lhs_type + " " + op + " " + rhs_type);
+      }
+      return new Var_t("EncDouble", res_);
     } else if (lhs_type.equals("EncDouble") && rhs_type.equals("EncDouble")) {
       String res_ = new_ctxt_tmp();
       append_idx(res_);
@@ -658,7 +774,8 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
           this.asm_.append(rhs.getName()).append(");\n");
           break;
         case "*":
-          this.asm_.append("EvalMultAndRelinearize(").append(lhs.getName());
+          // this.asm_.append("EvalMultAndRelinearize(").append(lhs.getName());
+          this.asm_.append("EvalMultNoRelin(").append(lhs.getName());
           this.asm_.append(", ").append(rhs.getName()).append(");\n");
           break;
         case "-":
