@@ -257,7 +257,7 @@ public class SymbolTableVisitor extends GJNoArguDepthFirst<Var_t> {
    * f0 -> "ConstDouble"
    */
   public Var_t visit(ConstantDoubleType n) throws Exception {
-    return new Var_t("ConstantDouble", null);
+    return new Var_t("ConstDouble", null);
   }
 
   /**
