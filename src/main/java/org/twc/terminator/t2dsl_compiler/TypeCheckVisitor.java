@@ -75,6 +75,7 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
    */
   public Var_t visit(VarDeclaration n) throws Exception {
     Var_t type = n.f0.accept(this);
+    type.printVarDetails();
     String type_str = type.getType();
     if (type_str == null) type_str = type.getName();
     String assigned_type = (n.f1.accept(this)).getType();
