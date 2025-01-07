@@ -471,10 +471,15 @@ void PrimaryExpression() : {} {
 |   LOOKAHEAD(3)
   ArrayAllocationExpression()
 |   LOOKAHEAD(3)
+  ConstantArrayAllocationExpression()
+|   LOOKAHEAD(3)
   EncryptedArrayAllocationExpression()
 |   LOOKAHEAD(3)
     ArrayDoubleAllocationExpression()
-|   LOOKAHEAD(3) EncryptedArrayDoubleAllocationExpression()
+|   LOOKAHEAD(3) 
+  ConstantArrayDoubleAllocationExpression()
+|   LOOKAHEAD(3) 
+  EncryptedArrayDoubleAllocationExpression()
 |   BracketExpression()
 }
 
@@ -502,12 +507,20 @@ void ArrayAllocationExpression() : {} {
   "new" "int" "[" Expression() "]"
 }
 
+void ConstantArrayAllocationExpression() : {} {
+  "new" "ConstInt" "[" Expression() "]"
+}
+
 void EncryptedArrayAllocationExpression() : {} {
   "new" "EncInt" "[" Expression() "]"
 }
 
 void ArrayDoubleAllocationExpression() : {} {
   "new" "double" "[" Expression() "]"
+}
+
+void ConstantArrayDoubleAllocationExpression() : {} {
+  "new" "ConstDouble" "[" Expression() "]"
 }
 
 void EncryptedArrayDoubleAllocationExpression() : {} {

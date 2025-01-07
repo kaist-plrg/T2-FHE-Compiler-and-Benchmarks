@@ -638,7 +638,7 @@ public class T2_2_OpenFHE extends T2_Compiler {
         break;
       case "EncInt[]":
         String exp_var;
-        if (exp_type.equals("int")) {
+        if (exp_type.equals("int") || exp_type.equals("ConstInt")) {
           exp_var = new_ctxt_tmp();
           encrypt(exp_var, new String[] { exp.getName() });
           this.asm_.append(";\n");
@@ -926,7 +926,8 @@ public class T2_2_OpenFHE extends T2_Compiler {
           "&&".equals(op) || "||".equals(op)) {
         return new Var_t("bool", lhs.getName() + op + rhs.getName());
       }
-    } else if (lhs_type.equals("ConstInt") && rhs_type.equals("ConstInt")) {
+    } else if ((lhs_type.equals("int") || lhs_type.equals("ConstInt")) && 
+               (rhs_type.equals("int") || rhs_type.equals("ConstInt"))) {
       if ("&".equals(op) || "|".equals(op) || "^".equals(op) || "<<".equals(op) ||
           ">>".equals(op) || "+".equals(op) || "-".equals(op) || "*".equals(op) ||
           "/".equals(op) || "%".equals(op)) {
@@ -1349,14 +1350,14 @@ public class T2_2_OpenFHE extends T2_Compiler {
         append_idx(this.st_.backend_types.get(e1_t) + " " + res_ + " = (");
         this.asm_.append(cond.getName()).append(")").append(" ? ");
         this.asm_.append(e1.getName()).append(" : ").append(e2.getName()).append(";\n");
-        return new Var_t(e1_t, res_);
+        return new Var_t(e2_t, res_);
       } else if ((e2_t.equals("int") || e2_t.equals("double")) &&
           (e1_t.equals("ConstInt") || e1_t.equals("ConstDouble"))) {
         res_ = "tmp_" + (++tmp_cnt_);
         append_idx(this.st_.backend_types.get(e2_t) + " " + res_ + " = (");
         this.asm_.append(cond.getName()).append(")").append(" ? ");
         this.asm_.append(e1.getName()).append(" : ").append(e2.getName()).append(";\n");
-        return new Var_t(e2_t, res_);
+        return new Var_t(e1_t, res_);
       } else if ((e1_t.equals("EncInt") || e1_t.equals("EncDouble")) &&
           (e2_t.equals("int") || e2_t.equals("double") || e2_t.equals("ConstInt") || e2_t.equals("ConstDouble"))) {
         res_ = new_ctxt_tmp();

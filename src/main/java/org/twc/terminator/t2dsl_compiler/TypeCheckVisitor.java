@@ -75,7 +75,7 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
    */
   public Var_t visit(VarDeclaration n) throws Exception {
     Var_t type = n.f0.accept(this);
-    type.printVarDetails();
+    type.printVarDetails(); //todo: delete
     String type_str = type.getType();
     if (type_str == null) type_str = type.getName();
     String assigned_type = (n.f1.accept(this)).getType();
@@ -109,12 +109,17 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
 
   /**
    * f0 -> ArrayType()
+   * | DoubleArrayType()
+   * | ConstantArrayType()
+   * | ConstantDoubleArrayType()
    * | EncryptedArrayType()
    * | EncryptedDoubleArrayType()
    * | BooleanType()
    * | IntegerType()
+   * | ConstantIntegerType()
    * | EncryptedIntegerType()
    * | DoubleType()
+   * | ConstantDoubleType()
    * | EncryptedDoubleType()
    * | Identifier()
    */
@@ -138,6 +143,24 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
    */
   public Var_t visit(DoubleArrayType n) throws Exception {
     return new Var_t("double[]", null);
+  }
+
+  /**
+   * f0 -> "ConstInt"
+   * f1 -> "["
+   * f2 -> "]"
+   */
+  public Var_t visit(ConstantArrayType n) throws Exception {
+    return new Var_t("ConstInt[]", null);
+  }
+
+  /**
+   * f0 -> "ConstantDouble"
+   * f1 -> "["
+   * f2 -> "]"
+   */
+  public Var_t visit(ConstantDoubleArrayType n) throws Exception {
+    return new Var_t("ConstDouble[]", null);
   }
 
   /**
@@ -175,6 +198,13 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
   }
 
   /**
+   * f0 -> "ConstInt"
+   */
+  public Var_t visit(ConstantIntegerType n) throws Exception {
+    return new Var_t("ConstInt", null);
+  }
+
+  /**
    * f0 -> "EncInt"
    */
   public Var_t visit(EncryptedIntegerType n) throws Exception {
@@ -187,6 +217,13 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
    */
   public Var_t visit(DoubleType n) throws Exception {
     return new Var_t("double", null);
+  }
+
+  /**
+   * f0 -> "ConstDouble"
+   */
+  public Var_t visit(ConstantDoubleType n) throws Exception {
+    return new Var_t("ConstDouble", null);
   }
 
   /**
@@ -213,6 +250,9 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
    *       | PrintStatement() ";"
    *       | ReduceNoiseStatement() ";"
    *       | MatchParamsStatement() ";"
+   *       | RotateLeftStatement() ";"
+   *       | RotateRightStatement() ";"
+   *       | RelinearizeStatement() ";"
    */
   public Var_t visit(Statement n) throws Exception {
     return n.f0.accept(this);
@@ -240,6 +280,10 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
     String t1_type = st_.findType(t1);
     String t2_type = st_.findType(t2);
     if (t1_type.equals(t2_type) ||
+      (t1_type.equals("ConstInt") && t2_type.equals("int")) ||
+      (t1_type.equals("ConstInt[]") && t2_type.equals("int[]")) ||
+      (t1_type.equals("ConstDouble") && (t2_type.equals("double") || t2_type.equals("int"))) ||
+      (t1_type.equals("ConstDouble[]") && (t2_type.equals("double[]") || t2_type.equals("int[]"))) ||
       (t1_type.equals("EncInt") && t2_type.equals("int")) ||
       (t1_type.equals("EncInt[]") && t2_type.equals("int[]")) ||
       (t1_type.equals("EncDouble") && (t2_type.equals("double") || t2_type.equals("int"))) ||
@@ -259,8 +303,8 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
     Var_t t1 = n.f0.accept(this);
     n.f1.accept(this);
     String t1_type = st_.findType(t1);
-    if (!(t1_type.equals("int") || t1_type.equals("EncInt") ||
-          t1_type.equals("double") || t1_type.equals("EncDouble"))) {
+    if (!(t1_type.equals("int") || t1_type.equals("ConstInt") || t1_type.equals("EncInt") ||
+          t1_type.equals("double") || t1_type.equals("ConstDouble") || t1_type.equals("EncDouble"))) {
       throw new Exception("Error in increment assignment (++). Type found " + t1_type);
     }
     return null;
@@ -274,8 +318,8 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
     Var_t t1 = n.f0.accept(this);
     n.f1.accept(this);
     String t1_type = st_.findType(t1);
-    if (!(t1_type.equals("int") || t1_type.equals("EncInt") ||
-            t1_type.equals("double") || t1_type.equals("EncDouble"))) {
+    if (!(t1_type.equals("int") || t1_type.equals("ConstInt") || t1_type.equals("EncInt") ||
+          t1_type.equals("double") || t1_type.equals("ConstDouble") || t1_type.equals("EncDouble"))) {
       throw new Exception("Error decrement assignment (--). Type found " + t1_type);
     }
     return null;
@@ -292,10 +336,14 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
     Var_t t2 = n.f2.accept(this);
     String t1_t = st_.findType(t1);
     String t2_t = st_.findType(t2);
-    if ((t1_t.equals("int") && t2_t.equals("int")) ||
-        (t1_t.equals("EncInt") && (t2_t.equals("int") || t2_t.equals("EncInt"))) ||
-        (t1_t.equals("double") && (t2_t.equals("int") || t2_t.equals("double"))) ||
-        (t1_t.equals("EncDouble") && (t2_t.equals("int") || t2_t.equals("double") || t2_t.equals("EncDouble")))
+    if (((t1_t.equals("int") || t1_t.equals("ConstInt")) && 
+          (t2_t.equals("int") || t2_t.equals("ConstInt"))) ||
+        (t1_t.equals("EncInt") && 
+          (t2_t.equals("int") || t2_t.equals("ConstInt") || t2_t.equals("EncInt"))) ||
+        ((t1_t.equals("double") || t1_t.equals("ConstDouble")) && 
+          (t2_t.equals("int") || t2_t.equals("double") || t2_t.equals("ConstInt") || t2_t.equals("ConstDouble"))) ||
+        (t1_t.equals("EncDouble") && 
+          (t2_t.equals("int") || t2_t.equals("double") || t2_t.equals("ConstInt") || t2_t.equals("ConstDouble") || t2_t.equals("EncDouble")))
     ) {
       return null;
     }
@@ -324,10 +372,12 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
     }
     if ((array_type.equals("int[]") && val_type.equals("int")) ||
         (array_type.equals("double[]") && val_type.equals("double")) ||
+        (array_type.equals("ConstInt[]") && val_type.equals("ConstInt")) ||
+        (array_type.equals("ConstDouble[]") && val_type.equals("ConstDouble")) ||
         (array_type.equals("EncInt[]") &&
-          (val_type.equals("EncInt") || val_type.equals("int"))) ||
+          (val_type.equals("EncInt") || val_type.equals("int") || val_type.equals("ConstInt"))) ||
         (array_type.equals("EncDouble[]") &&
-          (val_type.equals("EncDouble") || val_type.equals("double") || val_type.equals("int")))
+          (val_type.equals("EncDouble") || val_type.equals("double") || val_type.equals("int") || val_type.equals("ConstDouble") || val_type.equals("ConstInt")))
     ) {
       return null;
     }
@@ -373,10 +423,12 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
     }
     if ((array_type.equals("int[]") && val_type.equals("int")) ||
         (array_type.equals("double[]") && val_type.equals("double")) ||
+        (array_type.equals("ConstInt[]") && val_type.equals("ConstInt")) ||
+        (array_type.equals("ConstDouble[]") && val_type.equals("ConstDouble")) ||
         (array_type.equals("EncInt[]") &&
-          (val_type.equals("EncInt") || val_type.equals("int"))) ||
+          (val_type.equals("EncInt") || val_type.equals("int") || val_type.equals("ConstInt"))) ||
         (array_type.equals("EncDouble[]") &&
-          (val_type.equals("EncDouble") || val_type.equals("double") || val_type.equals("int")))
+          (val_type.equals("EncDouble") || val_type.equals("double") || val_type.equals("int") || val_type.equals("ConstDouble") || val_type.equals("ConstInt")))
     ) {
       return null;
     }
@@ -399,6 +451,8 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
     String exp_type_first = st_.findType(exp);
     if (!((id_type.equals("int[]") && exp_type_first.equals("int")) ||
           (id_type.equals("double[]") && exp_type_first.equals("double")) ||
+          (id_type.equals("ConstInt[]") && exp_type_first.equals("ConstInt")) ||
+          (id_type.equals("ConstDouble[]") && exp_type_first.equals("ConstDouble")) ||
           (id_type.equals("EncInt") && exp_type_first.equals("int")) ||
           (id_type.equals("EncDouble") && exp_type_first.equals("int")) ||
           (id_type.equals("EncDouble") && exp_type_first.equals("double")) ||
@@ -454,9 +508,9 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
     if (!index_type.equals("int")) {
       throw new Exception("array index type mismatch: " + index_type);
     }
-    if (!((id_type.equals("EncInt[]") && exp_type_first.equals("int")) ||
-          (id_type.equals("EncDouble[]") && exp_type_first.equals("int")) ||
-          (id_type.equals("EncDouble[]") && exp_type_first.equals("double")) )) {
+    if (!((id_type.equals("EncInt[]") && (exp_type_first.equals("int") || exp_type_first.equals("ConstInt"))) ||
+          (id_type.equals("EncDouble[]") && 
+            (exp_type_first.equals("int") || exp_type_first.equals("double") || exp_type_first.equals("ConstInt") || exp_type_first.equals("ConstDouble")) ))) {
       throw new Exception("Error in batching assignment between different " +
               "types: " + id_type + " {" + exp_type_first + "}");
     }
@@ -596,8 +650,9 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
     Var_t expr = n.f2.accept(this);
     n.f3.accept(this);
     String expr_type = st_.findType(expr);
-    if (expr_type.equals("bool") || expr_type.equals("int") ||
-        expr_type.equals("double") ||
+    if (expr_type.equals("bool") || 
+        expr_type.equals("int") || expr_type.equals("double") ||
+        expr_type.equals("ConstInt") || expr_type.equals("ConstDouble") ||
         expr_type.equals("EncInt") || expr_type.equals("EncDouble")) {
       return null;
     }
@@ -623,7 +678,7 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
     if (size_type == null || size_type.equals("")) {
       size_type = st_.findType(size);
     }
-    if (!size_type.equals("int"))
+    if (!size_type.equals("int") && !size_type.equals("ConstInt"))
       throw new RuntimeException("PrintBatchedStatement: size type " + size_type);
     if (expr_type.equals("EncInt") || expr_type.equals("EncDouble")) {
       return null;
@@ -687,7 +742,7 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
     if (amnt_t == null || amnt_t.equals("")) {
       amnt_t = st_.findType(amnt);
     }
-    if (!amnt_t.equals("int"))
+    if (!amnt_t.equals("int") && !amnt_t.equals("ConstInt"))
       throw new RuntimeException("RotateLeft: amount type " + amnt_t);
     if (ctxt_t.equals("EncInt") || ctxt_t.equals("EncDouble")) {
       return null;
@@ -711,12 +766,30 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
     if (amnt_t == null || amnt_t.equals("")) {
       amnt_t = st_.findType(amnt);
     }
-    if (!amnt_t.equals("int"))
+    if (!amnt_t.equals("int") && !amnt_t.equals("ConstInt"))
       throw new RuntimeException("RotateRight: amount type " + amnt_t);
     if (ctxt_t.equals("EncInt") || ctxt_t.equals("EncDouble")) {
       return null;
     }
     throw new Exception("Rotate Right statement not EncInt or EncDouble.");
+  }
+
+  /**
+   * f0 -> <RELINEARIZE>
+   * f1 -> "("
+   * f2 -> Expression()
+   * f3 -> ")"
+   */
+  public Var_t visit(RelinearizeStatement n) throws Exception {
+    n.f0.accept(this);
+    n.f1.accept(this);
+    Var_t expr = n.f2.accept(this);
+    n.f3.accept(this);
+    String expr_type = st_.findType(expr);
+    if (expr_type.equals("EncInt") || expr_type.equals("EncDouble")) {
+      return null;
+    }
+    throw new Exception("Reduce noise statement not EncInt.");
   }
 
   /**
@@ -789,34 +862,45 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
     ) {
       if (t1.equals("int") && t2.equals("int")) {
         return new Var_t("int", null);
+      } else if ((t1.equals("int") || t1.equals("ConstInt")) && 
+                 (t2.equals("int") || t2.equals("ConstInt"))) {
+        return new Var_t("ConstInt", null);
       } else if ((t1.equals("double") || t1.equals("int")) &&
                  (t2.equals("double") || t2.equals("int")) ) {
         return new Var_t("double", null);
-      } else if ((t1.equals("int") || t1.equals("EncInt")) &&
-                 (t2.equals("int") || t2.equals("EncInt")) ) {
+      } else if ((t1.equals("int") || t1.equals("ConstInt") || t1.equals("EncInt")) &&
+                 (t2.equals("int") || t2.equals("ConstInt") || t2.equals("EncInt")) ) {
         return new Var_t("EncInt", null);
-      } else if ((t1.equals("int") || t1.equals("double") || t1.equals("EncDouble")) &&
-                 (t2.equals("int") || t2.equals("double") || t2.equals("EncDouble")) ) {
+      } else if ((t1.equals("ConstDouble") &&
+                   (t2.equals("int") || t2.equals("double") || t2.equals("ConstInt") || t2.equals("ConstDouble"))) ||
+                 (t2.equals("ConstDouble") &&
+                   (t1.equals("int") || t1.equals("double") || t1.equals("ConstInt"))) ) {
         return new Var_t("EncDouble", null);
       }
     } else if ("==".equals(op) || "!=".equals(op) || "<".equals(op) ||
                "<=".equals(op) || ">".equals(op) || ">=".equals(op)) {
       if (t1.equals("bool") && t2.equals("bool")) {
         return new Var_t("bool", null);
-      } else if (t1.equals("int") && t2.equals("int")) {
+      } else if ((t1.equals("int") || t1.equals("ConstInt")) && 
+                 (t2.equals("int") || t2.equals("ConstInt"))) {
         return new Var_t("bool", null);
       } else if ((t1.equals("double") || t1.equals("int")) &&
                  (t2.equals("double") || t2.equals("int")) ) {
+        return new Var_t("bool", null);
+      } else if ((t1.equals("ConstDouble") &&
+                   (t2.equals("int") || t2.equals("double") || t2.equals("ConstInt") || t2.equals("ConstDouble"))) ||
+                 (t2.equals("ConstDouble") &&
+                   (t1.equals("int") || t1.equals("double") || t1.equals("ConstInt"))) ) {
         return new Var_t("bool", null);
       } else if (t1.equals("EncInt") && t2.equals("EncInt")) {
         return new Var_t("EncInt", null);
       } else if (t1.equals("EncDouble") && t2.equals("EncDouble")) {
         return new Var_t("EncDouble", null);
-      } else if ((t1.equals("EncInt") && t2.equals("int")) ||
-                 (t1.equals("int") && t2.equals("EncInt"))) {
+      } else if ((t1.equals("EncInt") && (t2.equals("int") || t2.equals("ConstInt"))) ||
+                 ((t1.equals("int") || t1.equals("CosntInt")) && t2.equals("EncInt"))) {
         return new Var_t("EncInt", null);
-      } else if ((t1.equals("EncDouble") && (t2.equals("int") || t2.equals("double"))) ||
-                ((t1.equals("int") || t1.equals("double")) && t2.equals("EncDouble")) ) {
+      } else if ((t1.equals("EncDouble") && (t2.equals("int") || t2.equals("double") || t2.equals("ConstInt") || t2.equals("ConstDouble"))) ||
+                ((t1.equals("int") || t1.equals("double") || t1.equals("ConstInt") || t1.equals("ConstDouble")) && t2.equals("EncDouble")) ) {
         return new Var_t("EncDouble", null);
       }
     }
@@ -869,6 +953,8 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
     String t1 = st_.findType(clause_1);
     if (t1.equals("int")) {
       return new Var_t("int", null);
+    } else if (t1.equals("ConstInt")) {
+      return new Var_t("ConstInt", null);
     } else if (t1.equals("EncInt")) {
       return new Var_t("EncInt", null);
     }
@@ -888,13 +974,17 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
     String array_type = st_.findType(array);
     String idx_type = idx.getType();
     if (idx_type == null) idx_type = st_.findType(idx);
-    if (!idx_type.equals("int"))
+    if (!idx_type.equals("int") && !idx_type.equals("ConstInt"))
       throw new RuntimeException("ArrayLookup: index type");
     switch (array_type) {
       case "int[]":
         return new Var_t("int", null);
       case "double[]":
         return new Var_t("double", null);
+      case "ConstInt[]":
+        return new Var_t("ConstInt", null);
+      case "ConstDouble[]":
+        return new Var_t("ConstDouble", null);
       case "EncInt[]":
         return new Var_t("EncInt", null);
       case "EncDouble[]":
@@ -914,6 +1004,8 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
     switch (arr_type) {
       case "int[]":
       case "double[]":
+      case "ConstInt[]":
+      case "ConstDouble[]":
       case "EncInt[]":
       case "EncDouble[]":
         return new Var_t("int", null);
@@ -941,28 +1033,36 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
       case "bool":
       case "int":
       case "double":
+      case "ConstInt":
+      case "ConstDouble":
         if (e1_t.equals(e2_t)) {
           return new Var_t(e1_t, null);
-        } else if ( (e1_t.equals("int") || e1_t.equals("EncInt")) &&
-                    (e2_t.equals("int") || e2_t.equals("EncInt")) ) {
+        } else if ((e1_t.equals("int") || e1_t.equals("double")) &&
+                   (e2_t.equals("ConstInt") || e2_t.equals("ConstDouble"))) {
+          return new Var_t(e2_t, null);
+        } else if ((e2_t.equals("int") || e2_t.equals("double")) &&
+                   (e1_t.equals("ConstInt") || e1_t.equals("ConstDouble"))) {
+          return new Var_t(e1_t, null);
+        } else if ( (e1_t.equals("int") || e1_t.equals("ConstInt") || e1_t.equals("EncInt")) &&
+                    (e2_t.equals("int") || e2_t.equals("ConstInt") || e2_t.equals("EncInt")) ) {
           return new Var_t("EncInt", null);
-        } else if ( (e1_t.equals("int") || e1_t.equals("double") || e1_t.equals("EncDouble")) &&
-                    (e2_t.equals("int") || e2_t.equals("double") || e2_t.equals("EncDouble")) ) {
+        } else if ( (e1_t.equals("int") || e1_t.equals("double") || e1_t.equals("ConstInt") || e1_t.equals("ConstDouble") || e1_t.equals("EncDouble")) &&
+                    (e2_t.equals("int") || e2_t.equals("double") || e2_t.equals("ConstInt") || e2_t.equals("ConstDouble") ||e2_t.equals("EncDouble")) ) {
           return new Var_t("EncDouble", null);
         }
         throw new Exception("Ternary types mismatch: " + e1_t + " " + e2_t);
       case "EncInt":
         if (e1_t.equals(e2_t) ||
-            ((e1_t.equals("int") || e1_t.equals("EncInt")) &&
-             (e2_t.equals("int") || e2_t.equals("EncInt")))
+            ((e1_t.equals("int") || e1_t.equals("ConstInt") || e1_t.equals("EncInt")) &&
+             (e2_t.equals("int") || e2_t.equals("ConstInt") || e2_t.equals("EncInt")))
         ) {
           return new Var_t("EncInt", null);
         }
         throw new Exception("Ternary types mismatch: " + e1_t + " " + e2_t);
       case "EncDouble":
         if (e1_t.equals(e2_t) ||
-          ((e1_t.equals("int") || e1_t.equals("double") || e1_t.equals("EncDouble")) &&
-           (e2_t.equals("int") || e2_t.equals("double") || e2_t.equals("EncDouble")))
+          ((e1_t.equals("int") || e1_t.equals("double") || e1_t.equals("ConstInt") || e1_t.equals("ConstDouble") || e1_t.equals("EncDouble")) &&
+           (e2_t.equals("int") || e2_t.equals("double") || e2_t.equals("ConstInt") || e2_t.equals("ConstDouble") || e2_t.equals("EncDouble")))
         ) {
           return new Var_t("EncDouble", null);
         }
@@ -1069,6 +1169,47 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
     }
     n.f4.accept(this);
     return new Var_t("double[]", null);
+  }
+
+  /**
+   * f0 -> "new"
+   * f1 -> "ConstInt"
+   * f2 -> "["
+   * f3 -> Expression()
+   * f4 -> "]"
+   */
+  public Var_t visit(ConstantArrayAllocationExpression n) throws Exception {
+    n.f0.accept(this);
+    n.f1.accept(this);
+    n.f2.accept(this);
+    Var_t t = n.f3.accept(this);
+    String t_type = st_.findType(t);
+    if (!t_type.equals("int")) {
+      throw new Exception("Error: new ConstInt[" + t_type + "], " + t_type + " should be int");
+    }
+    n.f4.accept(this);
+    return new Var_t("ConstInt[]", null);
+  }
+
+  /**
+   * f0 -> "new"
+   * f1 -> "ConstDouble"
+   * f2 -> "["
+   * f3 -> Expression()
+   * f4 -> "]"
+   */
+  public Var_t visit(ConstantArrayDoubleAllocationExpression n) throws Exception {
+    n.f0.accept(this);
+    n.f1.accept(this);
+    n.f2.accept(this);
+    Var_t t = n.f3.accept(this);
+    String t_type = st_.findType(t);
+    if (!t_type.equals("int")) {
+      throw new Exception("Error: new ConstDouble[" + t_type + "], " + t_type +
+              " should be int");
+    }
+    n.f4.accept(this);
+    return new Var_t("ConstDouble[]", null);
   }
 
   /**
