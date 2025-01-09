@@ -38,6 +38,10 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
     this.st_.backend_types.put("double", "double");
     this.st_.backend_types.put("int[]", "vector<int>");
     this.st_.backend_types.put("double[]", "vector<double>");
+    this.st_.backend_types.put("ConstInt", "int");
+    this.st_.backend_types.put("ConstInt[]", "vector<int>");
+    this.st_.backend_types.put("ConstDouble", "double");
+    this.st_.backend_types.put("ConstDouble[]", "vector<double>");
     this.semicolon_ = false;
     this.asm_ = new StringBuilder();
     this.config_file_path_ = config_file_path;
@@ -212,12 +216,16 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
   /**
    * f0 -> ArrayType()
    * | DoubleArrayType()
+   * | ConstantArrayType()
+   * | ConstantDoubleArrayType()
    * | EncryptedArrayType()
    * | EncryptedDoubleArrayType()
    * | BooleanType()
    * | IntegerType()
+   * | ConstantIntegerType()
    * | EncryptedIntegerType()
    * | DoubleType()
+   * | ConstantDoubleType()
    * | EncryptedDoubleType()
    * | Identifier()
    */
@@ -242,6 +250,25 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
   public Var_t visit(DoubleArrayType n) throws Exception {
     return new Var_t("double[]", null);
   }
+
+  /**
+   * f0 -> "ConstInt"
+   * f1 -> "["
+   * f2 -> "]"
+   */
+  public Var_t visit(ConstantArrayType n) throws Exception {
+    return new Var_t("ConstInt[]", null);
+  }
+
+  /**
+   * f0 -> "ConstantDouble"
+   * f1 -> "["
+   * f2 -> "]"
+   */
+  public Var_t visit(ConstantDoubleArrayType n) throws Exception {
+    return new Var_t("ConstDouble[]", null);
+  }
+
 
   /**
    * f0 -> "EncInt"
@@ -276,6 +303,13 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
   }
 
   /**
+   * f0 -> "ConstInt"
+   */
+  public Var_t visit(ConstantIntegerType n) throws Exception {
+    return new Var_t("ConstInt", null);
+  }
+
+  /**
    * f0 -> "EncInt"
    */
   public Var_t visit(EncryptedIntegerType n) throws Exception {
@@ -287,6 +321,13 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
    */
   public Var_t visit(DoubleType n) throws Exception {
     return new Var_t("double", null);
+  }
+
+  /**
+   * f0 -> "ConstDouble"
+   */
+  public Var_t visit(ConstantDoubleType n) throws Exception {
+    return new Var_t("ConstDouble", null);
   }
 
   /**
@@ -314,6 +355,7 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
    * | ReduceNoiseStatement() ";"
    * | StartTimerStatement() ";"
    * | StopTimerStatement() ";"
+   * | RelinearizeStatement() ";"
    */
   public Var_t visit(Statement n) throws Exception {
     n.f0.accept(this);
@@ -707,6 +749,10 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
         return new Var_t("int", arr.getName() + "[" + idx.getName() + "]");
       case "double[]":
         return new Var_t("double", arr.getName() + "[" + idx.getName() + "]");
+      case "ConstInt[]":
+        return new Var_t("ConstInt", arr.getName() + "[" + idx.getName() + "]");
+      case "ConstDouble[]":
+        return new Var_t("ConstDouble", arr.getName() + "[" + idx.getName() + "]");
       case "EncInt[]":
         return new Var_t("EncInt", arr.getName() + "[" + idx.getName() + "]");
       case "EncDouble[]":
@@ -726,6 +772,8 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
     switch (arr_type) {
       case "int[]":
       case "double[]":
+      case "ConstInt[]":
+      case "ConstDouble[]":
       case "EncInt[]":
       case "EncDouble[]":
         break;
@@ -815,6 +863,18 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
 
   /**
    * f0 -> "new"
+   * f1 -> "ConstInt"
+   * f2 -> "["
+   * f3 -> Expression()
+   * f4 -> "]"
+   */
+  public Var_t visit(ConstantArrayAllocationExpression n) throws Exception {
+    String size = n.f3.accept(this).getName();
+    return new Var_t("CosntInt[]", "resize(" + size + ")");
+  }
+
+  /**
+   * f0 -> "new"
    * f1 -> "EncInt"
    * f2 -> "["
    * f3 -> Expression()
@@ -835,6 +895,18 @@ public abstract class T2_Compiler extends GJNoArguDepthFirst<Var_t> {
   public Var_t visit(ArrayDoubleAllocationExpression n) throws Exception {
     String size = n.f3.accept(this).getName();
     return new Var_t("double[]", "resize(" + size + ")");
+  }
+
+  /**
+   * f0 -> "new"
+   * f1 -> "ConstDouble"
+   * f2 -> "["
+   * f3 -> Expression()
+   * f4 -> "]"
+   */
+  public Var_t visit(ConstantArrayDoubleAllocationExpression n) throws Exception {
+    String size = n.f3.accept(this).getName();
+    return new Var_t("ConstDouble[]", "resize(" + size + ")");
   }
 
   /**
