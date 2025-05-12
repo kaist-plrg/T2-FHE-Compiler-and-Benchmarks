@@ -622,7 +622,7 @@ public class T2_2_OpenFHE_CKKS extends T2_2_OpenFHE {
     String expr_type = st_.findType(expr);
     if (!expr_type.equals("EncDouble"))
       throw new RuntimeException("ReduceNoiseStatement");
-    append_idx("cc->Relinearize(");
+    append_idx("cc->RelinearizeInPlace(");
     this.asm_.append(expr.getName()).append(");\n");
     return null;
   }

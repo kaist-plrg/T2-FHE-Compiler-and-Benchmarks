@@ -900,7 +900,7 @@ public class T2_2_OpenFHE extends T2_Compiler {
     String expr_type = st_.findType(expr);
     if (!expr_type.equals("EncInt"))
       throw new RuntimeException("ReduceNoiseStatement");
-    append_idx("cc->Relinearize(");
+    append_idx("cc->RelinearizeInPlace(");
     this.asm_.append(expr.getName()).append(");\n");
     return null;
   }
