@@ -875,7 +875,7 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
       } else if ((t1.equals("int") || t1.equals("ConstInt") || t1.equals("EncInt")) &&
                  (t2.equals("int") || t2.equals("ConstInt") || t2.equals("EncInt")) ) {
         return new Var_t("EncInt", null);
-      } else if ((t1.equals("EncDouble") && (t2.equals("int") || t2.equals("double") || t2.equals("ConstInt") || t2.equals("ConstDouble"))) ||
+      } else if ((t1.equals("EncDouble") && (t2.equals("int") || t2.equals("double") || t2.equals("ConstInt") || t2.equals("ConstDouble") || t2.equals("EncDouble"))) ||
                 ((t1.equals("int") || t1.equals("double") || t1.equals("ConstInt") || t1.equals("ConstDouble")) && t2.equals("EncDouble")) ) {
         return new Var_t("EncDouble", null);
       }
