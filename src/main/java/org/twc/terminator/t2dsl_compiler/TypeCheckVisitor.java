@@ -450,7 +450,11 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
     String exp_type_first = st_.findType(exp);
     if (!((id_type.equals("int[]") && exp_type_first.equals("int")) ||
           (id_type.equals("double[]") && exp_type_first.equals("double")) ||
+          (id_type.equals("ConstInt[]") && exp_type_first.equals("int")) ||
           (id_type.equals("ConstInt[]") && exp_type_first.equals("ConstInt")) ||
+          (id_type.equals("ConstDouble[]") && exp_type_first.equals("int")) ||
+          (id_type.equals("ConstDouble[]") && exp_type_first.equals("double")) ||
+          (id_type.equals("ConstDouble[]") && exp_type_first.equals("ConstInt")) ||
           (id_type.equals("ConstDouble[]") && exp_type_first.equals("ConstDouble")) ||
           (id_type.equals("EncInt") && exp_type_first.equals("int")) ||
           (id_type.equals("EncDouble") && exp_type_first.equals("int")) ||
