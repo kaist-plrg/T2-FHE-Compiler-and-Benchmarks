@@ -457,12 +457,18 @@ public class TypeCheckVisitor extends GJNoArguDepthFirst<Var_t> {
           (id_type.equals("ConstDouble[]") && exp_type_first.equals("ConstInt")) ||
           (id_type.equals("ConstDouble[]") && exp_type_first.equals("ConstDouble")) ||
           (id_type.equals("EncInt") && exp_type_first.equals("int")) ||
+          (id_type.equals("EncInt") && exp_type_first.equals("ConstInt")) ||
           (id_type.equals("EncDouble") && exp_type_first.equals("int")) ||
+          (id_type.equals("EncDouble") && exp_type_first.equals("ConstInt")) ||
           (id_type.equals("EncDouble") && exp_type_first.equals("double")) ||
+          (id_type.equals("EncDouble") && exp_type_first.equals("ConstDouble")) ||
           (id_type.equals("EncInt[]") && exp_type_first.equals("int")) ||
+          (id_type.equals("EncInt[]") && exp_type_first.equals("ConstInt")) ||
           (id_type.equals("EncInt[]") && exp_type_first.equals("EncInt")) ||
           (id_type.equals("EncDouble[]") && exp_type_first.equals("int")) ||
+          (id_type.equals("EncDouble[]") && exp_type_first.equals("ConstInt")) ||
           (id_type.equals("EncDouble[]") && exp_type_first.equals("double")) ||
+          (id_type.equals("EncDouble[]") && exp_type_first.equals("ConstDouble")) ||
           (id_type.equals("EncDouble[]") && exp_type_first.equals("EncDouble"))
     )) {
       throw new Exception("Error in batching assignment between different " +
