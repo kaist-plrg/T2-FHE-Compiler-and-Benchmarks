@@ -39,7 +39,7 @@ fi
 #fi
 
 # openfhe_versions=("v1.0.1" "v1.0.2" "v1.0.3" "v1.0.4" "v1.1.2" "v1.1.4" "v1.2.0" "v1.2.1" "v1.2.2" "v1.2.3" "v1.2.4")
-openfhe_versions=("v1.0.4" "v1.1.2" "v1.1.4" "v1.2.0" "v1.2.1" "v1.2.2" "v1.2.3" "v1.2.4")
+openfhe_versions=("v1.0.4" "v1.1.2" "v1.1.4" "v1.2.0" "v1.2.1" "v1.2.2" "v1.2.3" "v1.2.4" "v1.4.2")
 for version in "${openfhe_versions[@]}"; do
     git clone https://github.com/openfheorg/openfhe-development.git OpenFHE-$version
     echo "Build OpenFHE $version"
@@ -53,7 +53,7 @@ for version in "${openfhe_versions[@]}"; do
     cd ../..
 done
 
-seal_versions=("v3.7.2" "v3.7.3" "v4.0.0" "v4.1.0" "v4.1.1")
+seal_versions=("v3.7.2" "v3.7.3" "v4.0.0" "v4.1.0" "v4.1.1" "v4.1.2")
 for version in "${seal_versions[@]}"; do
     echo "Build SEAL $version"
     git clone https://github.com/microsoft/SEAL.git SEAL-$version
